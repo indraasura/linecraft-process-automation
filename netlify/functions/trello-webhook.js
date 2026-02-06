@@ -4,7 +4,7 @@ const TRELLO_KEY = process.env.TRELLO_KEY;
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
 const BUG_CHECKLIST_NAME = "Bugs reported";
 
-// Helper: Get checklists for a card
+// Helper: get checklists for a card
 async function getChecklists(cardId) {
   const res = await fetch(
     `https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`
@@ -12,7 +12,7 @@ async function getChecklists(cardId) {
   return await res.json();
 }
 
-// Helper: Create checklist on a card
+// Helper: create a checklist
 async function createChecklist(cardId, name) {
   const res = await fetch(
     `https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`,
@@ -25,7 +25,7 @@ async function createChecklist(cardId, name) {
   return await res.json();
 }
 
-// Helper: Add item to checklist
+// Helper: add item to checklist
 async function addChecklistItem(checklistId, text) {
   const res = await fetch(
     `https://api.trello.com/1/checklists/${checklistId}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`,
@@ -40,39 +40,33 @@ async function addChecklistItem(checklistId, text) {
 
 exports.handler = async (event) => {
   try {
-    // 1️⃣ Handle Trello validation (HEAD request)
+    // ✅ Handle Trello validation
     if (event.httpMethod === "HEAD") {
       return { statusCode: 200 };
     }
 
-    // 2️⃣ Only POST requests for Trello events
     if (event.httpMethod !== "POST") {
-      return { statusCode: 405, body: "Method Not Allowed" };
+      return { statusCode: 200, body: "OK" }; // Return 200 for anything else
     }
 
-    // 3️⃣ Parse Trello webhook payload safely
     const body = JSON.parse(event.body);
     const action = body.action;
 
-    if (!action) {
-      return { statusCode: 200, body: "No action" };
-    }
+    if (!action) return { statusCode: 200, body: "No action" };
 
-    // Only handle comments added
-    if (action.type !== "commentCard") {
-      return { statusCode: 200, body: "Not a comment" };
-    }
+    // Only handle commentCard
+    if (action.type !== "commentCard") return { statusCode: 200, body: "Not a comment" };
 
     const commentText = action.data.text;
     const cardId = action.data.card.id;
 
-    // Check if comment starts with "Bug" followed by number
+    // Check if comment starts with Bug + number
     const bugRegex = /^Bug\s*(\d+)/i;
     if (!bugRegex.test(commentText)) {
       return { statusCode: 200, body: "Comment does not match Bug pattern" };
     }
 
-    // 4️⃣ Get or create "Bugs reported" checklist
+    // Get or create Bugs reported checklist
     let checklists = await getChecklists(cardId);
     let bugChecklist = checklists.find((c) => c.name === BUG_CHECKLIST_NAME);
 
@@ -80,7 +74,6 @@ exports.handler = async (event) => {
       bugChecklist = await createChecklist(cardId, BUG_CHECKLIST_NAME);
     }
 
-    // 5️⃣ Add the comment as a new checklist item
     await addChecklistItem(bugChecklist.id, commentText);
 
     return { statusCode: 200, body: "Bug added to checklist" };
