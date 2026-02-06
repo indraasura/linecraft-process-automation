@@ -19,9 +19,7 @@
 
   <script>
     async function createWebhooks() {
-      const res = await fetch("/.netlify/functions/manage-webhooks", {
-        method: "POST"
-      });
+      const res = await fetch("/.netlify/functions/manage-webhooks", { method: "POST" });
       document.getElementById("output").textContent = await res.text();
     }
 

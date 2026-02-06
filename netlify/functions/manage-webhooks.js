@@ -1,11 +1,11 @@
-// netlify/functions/manage-webhooks.mjs
-import fetch from "node-fetch";
+const fetch = require("node-fetch");
 
 const BOARDS = [
   "64abdd627fd032c5d7ba02c5",
+  // add other board IDs here
 ];
 
-export const handler = async (event) => {
+exports.handler = async (event) => {
   const key = process.env.TRELLO_KEY;
   const token = process.env.TRELLO_TOKEN;
   const callbackURL =
@@ -13,6 +13,7 @@ export const handler = async (event) => {
 
   try {
     if (event.httpMethod === "GET") {
+      // List existing webhooks
       const res = await fetch(
         `https://api.trello.com/1/tokens/${token}/webhooks?key=${key}`
       );
