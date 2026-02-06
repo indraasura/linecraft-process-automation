@@ -6,7 +6,7 @@
   <style>
     body { font-family: sans-serif; padding: 2rem; }
     button { padding: 10px 16px; margin: 6px 0; }
-    pre { background: #f4f4f4; padding: 1rem; }
+    pre { background: #f4f4f4; padding: 1rem; white-space: pre-wrap; word-wrap: break-word; }
   </style>
 </head>
 <body>
@@ -15,17 +15,27 @@
   <button onclick="createWebhooks()">Create webhooks</button>
   <button onclick="listWebhooks()">List existing webhooks</button>
 
+  <h3>Logs:</h3>
   <pre id="output"></pre>
 
   <script>
     async function createWebhooks() {
       const res = await fetch("/.netlify/functions/manage-webhooks", { method: "POST" });
-      document.getElementById("output").textContent = await res.text();
+      const text = await res.text();
+      document.getElementById("output").textContent = "Create Webhooks Result:\n" + text;
     }
 
     async function listWebhooks() {
       const res = await fetch("/.netlify/functions/manage-webhooks");
-      document.getElementById("output").textContent = await res.text();
+      const text = await res.text();
+      document.getElementById("output").textContent = "Existing Webhooks:\n" + text;
+    }
+
+    // Optional: Poll last webhook events
+    async function pollWebhookLogs() {
+      const res = await fetch("/.netlify/functions/trello-webhook");
+      const text = await res.text();
+      document.getElementById("output").textContent = "Webhook Logs:\n" + text;
     }
   </script>
 </body>
