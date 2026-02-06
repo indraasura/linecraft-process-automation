@@ -1,11 +1,11 @@
-const fetch = require("node-fetch");
+// netlify/functions/manage-webhooks.mjs
+import fetch from "node-fetch";
 
 const BOARDS = [
-  "64abdd627fd032c5d7ba02c5", // Replace with your real Trello board IDs
-  // Add other board IDs here
+  "64abdd627fd032c5d7ba02c5",
 ];
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   const key = process.env.TRELLO_KEY;
   const token = process.env.TRELLO_TOKEN;
   const callbackURL =
@@ -29,20 +29,12 @@ exports.handler = async (event) => {
           {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({
-              callbackURL,
-              idModel: boardId
-            })
+            body: new URLSearchParams({ callbackURL, idModel: boardId })
           }
         );
 
         const text = await res.text();
-
-        results.push({
-          boardId,
-          status: res.status,
-          response: text
-        });
+        results.push({ boardId, status: res.status, response: text });
       }
 
       return { statusCode: 200, body: JSON.stringify(results, null, 2) };
