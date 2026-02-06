@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Trello Bug Automation</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; }
+    button { padding: 10px 16px; margin: 6px 0; }
+    pre { background: #f4f4f4; padding: 1rem; }
+  </style>
+</head>
+<body>
+
+  <h2>Trello Bug Automation – Control Panel</h2>
+
+  <button onclick="createWebhooks()">Create webhooks</button>
+  <button onclick="listWebhooks()">List existing webhooks</button>
+
+  <pre id="output"></pre>
+
+  <script>
+    async function createWebhooks() {
+      const res = await fetch("/.netlify/functions/manage-webhooks", {
+        method: "POST"
+      });
+      document.getElementById("output").textContent = await res.text();
+    }
+
+    async function listWebhooks() {
+      const res = await fetch("/.netlify/functions/manage-webhooks");
+      document.getElementById("output").textContent = await res.text();
+    }
+  </script>
+
+</body>
+</html>
