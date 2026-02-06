@@ -2,7 +2,7 @@ const fetch = require("node-fetch");
 
 const TRELLO_KEY = process.env.TRELLO_KEY;
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
-const BUG_CHECKLIST_NAME = "Bugs reported";
+const BUG_CHECKLIST_NAME = "Bugs Reported";
 
 // Get checklists on a card
 async function getChecklists(cardId) {
