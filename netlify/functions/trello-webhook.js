@@ -4,11 +4,7 @@ const fetch = require("node-fetch");
  * Boards allowed to be processed
  */
 const SUPPORTED_BOARDS = [
-  "w7bbkm3U",
-  "neexo829",
-  "VA2rVL0Q",
-  "4hAcq4Yf",
-  "9pCNwdKL"
+  "64abdd627fd032c5d7ba02c5",
 ];
 
 /**
