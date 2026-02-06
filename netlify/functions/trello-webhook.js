@@ -1,106 +1,91 @@
 const fetch = require("node-fetch");
 
-/**
- * Boards allowed to be processed
- */
-const SUPPORTED_BOARDS = [
-  "64abdd627fd032c5d7ba02c5",
-];
+const TRELLO_KEY = process.env.TRELLO_KEY;
+const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
+const BUG_CHECKLIST_NAME = "Bugs reported";
 
-/**
- * Bug comment format:
- * Bug123
- * Bug 123
- */
-const BUG_REGEX = /^Bug\s?\d+/i;
+// Helper: Get checklists for a card
+async function getChecklists(cardId) {
+  const res = await fetch(
+    `https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`
+  );
+  return await res.json();
+}
+
+// Helper: Create checklist on a card
+async function createChecklist(cardId, name) {
+  const res = await fetch(
+    `https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name })
+    }
+  );
+  return await res.json();
+}
+
+// Helper: Add item to checklist
+async function addChecklistItem(checklistId, text) {
+  const res = await fetch(
+    `https://api.trello.com/1/checklists/${checklistId}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: text })
+    }
+  );
+  return await res.json();
+}
 
 exports.handler = async (event) => {
-  /**
-   * Trello sends a HEAD request when validating webhook
-   */
-  if (event.httpMethod === "HEAD") {
-    return { statusCode: 200 };
-  }
-
   try {
-    const payload = JSON.parse(event.body);
-    const action = payload.action;
-
-    /**
-     * Only process comment events
-     */
-    if (!action || action.type !== "commentCard") {
+    // 1️⃣ Handle Trello validation (HEAD request)
+    if (event.httpMethod === "HEAD") {
       return { statusCode: 200 };
     }
 
-    const boardId = payload.model.id;
+    // 2️⃣ Only POST requests for Trello events
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, body: "Method Not Allowed" };
+    }
 
-    /**
-     * Ignore unsupported boards
-     */
-    if (!SUPPORTED_BOARDS.includes(boardId)) {
-      return { statusCode: 200 };
+    // 3️⃣ Parse Trello webhook payload safely
+    const body = JSON.parse(event.body);
+    const action = body.action;
+
+    if (!action) {
+      return { statusCode: 200, body: "No action" };
+    }
+
+    // Only handle comments added
+    if (action.type !== "commentCard") {
+      return { statusCode: 200, body: "Not a comment" };
     }
 
     const commentText = action.data.text;
-
-    /**
-     * Ignore comments not starting with Bug<number>
-     */
-    if (!BUG_REGEX.test(commentText)) {
-      return { statusCode: 200 };
-    }
-
     const cardId = action.data.card.id;
-    const key = process.env.TRELLO_KEY;
-    const token = process.env.TRELLO_TOKEN;
 
-    /**
-     * Get all checklists on the card
-     */
-    const checklistRes = await fetch(
-      `https://api.trello.com/1/cards/${cardId}/checklists?key=${key}&token=${token}`
-    );
-    const checklists = await checklistRes.json();
-
-    /**
-     * Find or create "Bugs reported" checklist
-     */
-    let bugsChecklist = checklists.find(
-      (cl) => cl.name === "Bugs reported"
-    );
-
-    if (!bugsChecklist) {
-      const createChecklistRes = await fetch(
-        `https://api.trello.com/1/cards/${cardId}/checklists?key=${key}&token=${token}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: "Bugs reported"
-          })
-        }
-      );
-      bugsChecklist = await createChecklistRes.json();
+    // Check if comment starts with "Bug" followed by number
+    const bugRegex = /^Bug\s*(\d+)/i;
+    if (!bugRegex.test(commentText)) {
+      return { statusCode: 200, body: "Comment does not match Bug pattern" };
     }
 
-    /**
-     * Add new checklist item with full comment text
-     */
-    await fetch(
-      `https://api.trello.com/1/checklists/${bugsChecklist.id}/checkItems?key=${key}&token=${token}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: commentText
-        })
-      }
-    );
+    // 4️⃣ Get or create "Bugs reported" checklist
+    let checklists = await getChecklists(cardId);
+    let bugChecklist = checklists.find((c) => c.name === BUG_CHECKLIST_NAME);
 
-    return { statusCode: 200 };
+    if (!bugChecklist) {
+      bugChecklist = await createChecklist(cardId, BUG_CHECKLIST_NAME);
+    }
+
+    // 5️⃣ Add the comment as a new checklist item
+    await addChecklistItem(bugChecklist.id, commentText);
+
+    return { statusCode: 200, body: "Bug added to checklist" };
   } catch (err) {
-    console.error("Webhook error:", err);
-    return { statusCode: 500 };
+    console.error("Trello webhook error:", err);
+    return { statusCode: 500, body: "Internal Server Error" };
   }
 };
