@@ -1,0 +1,13 @@
+{
+  "name": "linecraft-process-automation",
+  "version": "1.0.0",
+  "description": "Trello webhook automation for bug comments",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "echo \"No build step required\""
+  },
+  "dependencies": {
+    "node-fetch": "^2.7.0"
+  }
+}
