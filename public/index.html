@@ -7,13 +7,17 @@
     body { font-family: sans-serif; padding: 2rem; }
     button { padding: 10px 16px; margin: 6px 0; }
     pre { background: #f4f4f4; padding: 1rem; white-space: pre-wrap; word-wrap: break-word; }
+    li { margin-bottom: 4px; }
   </style>
 </head>
 <body>
-  <h2>Trello Bug Automation – Control Panel</h2>
+  <h2>Trello Bug Automation – Webhook Manager</h2>
 
   <button onclick="createWebhooks()">Create webhooks</button>
   <button onclick="listWebhooks()">List existing webhooks</button>
+
+  <h3>Existing Webhooks:</h3>
+  <ul id="webhook-list"></ul>
 
   <h3>Logs:</h3>
   <pre id="output"></pre>
@@ -23,19 +27,41 @@
       const res = await fetch("/.netlify/functions/manage-webhooks", { method: "POST" });
       const text = await res.text();
       document.getElementById("output").textContent = "Create Webhooks Result:\n" + text;
+      listWebhooks();
     }
 
     async function listWebhooks() {
       const res = await fetch("/.netlify/functions/manage-webhooks");
-      const text = await res.text();
-      document.getElementById("output").textContent = "Existing Webhooks:\n" + text;
+      const webhooks = await res.json();
+      const listEl = document.getElementById("webhook-list");
+      listEl.innerHTML = "";
+
+      if (!webhooks.length) {
+        listEl.innerHTML = "<li>No webhooks found</li>";
+        return;
+      }
+
+      webhooks.forEach((w) => {
+        const li = document.createElement("li");
+        li.textContent = `ID: ${w.id}, Board: ${w.idModel}, Callback: ${w.callbackURL}`;
+        
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "Delete";
+        delBtn.style.marginLeft = "10px";
+        delBtn.onclick = async () => {
+          await deleteWebhook(w.id);
+        };
+
+        li.appendChild(delBtn);
+        listEl.appendChild(li);
+      });
     }
 
-    // Optional: Poll last webhook events
-    async function pollWebhookLogs() {
-      const res = await fetch("/.netlify/functions/trello-webhook");
+    async function deleteWebhook(id) {
+      const res = await fetch(`/.netlify/functions/manage-webhooks?id=${id}`, { method: "DELETE" });
       const text = await res.text();
-      document.getElementById("output").textContent = "Webhook Logs:\n" + text;
+      document.getElementById("output").textContent = "Delete Webhook Result:\n" + text;
+      listWebhooks();
     }
   </script>
 </body>
