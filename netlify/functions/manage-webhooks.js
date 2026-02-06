@@ -1,7 +1,7 @@
 const fetch = require("node-fetch");
 
 const BOARDS = [
-  "64abdd627fd032c5d7ba02c5", // Add all your board IDs
+  "6826cf1d8527ed0686f4e748", // Add all your board IDs
 ];
 
 exports.handler = async (event) => {
