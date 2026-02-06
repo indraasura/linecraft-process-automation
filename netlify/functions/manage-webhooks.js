@@ -1,11 +1,7 @@
 const fetch = require("node-fetch");
 
 const BOARDS = [
-  "w7bbkm3U",
-  "neexo829",
-  "VA2rVL0Q",
-  "4hAcq4Yf",
-  "9pCNwdKL"
+  "64abdd627fd032c5d7ba02c5"
 ];
 
 exports.handler = async (event) => {
