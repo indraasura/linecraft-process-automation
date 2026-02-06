@@ -1,8 +1,12 @@
 const fetch = require("node-fetch");
 
 const BOARDS = [
-  "6826cf1d8527ed0686f4e748", // Add all your board IDs
-];
+  "68e4e8e2007c3a7003bcc1bf", // Auto interaction
+  "64ad254fa293a6e863b6436d", // Bugs tracker
+  "64aba8a268ebd9d0b07835c2", // Product engineering
+  "687de71a54155a2c409b0aaf", // Rishi
+  "657842fda2700f8aaffb40e1", // On call
+]
 
 exports.handler = async (event) => {
   const key = process.env.TRELLO_KEY;
