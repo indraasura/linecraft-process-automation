@@ -64,7 +64,7 @@ exports.handler = async (event) => {
     const cardId = action.data.card.id;
 
     // Match comments starting with Bug + number
-    const bugRegex = /^Bug\s*\d+/i;
+    const bugRegex = /^\s*bug\s*\d+/i;
     if (!bugRegex.test(commentText)) {
       return { statusCode: 200, body: "Comment does not match Bug pattern" };
     }
