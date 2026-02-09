@@ -51,7 +51,9 @@ exports.handler = async (event) => {
     // HEAD request for Trello webhook validation
     if (event.httpMethod === "HEAD") return { statusCode: 200 };
 
-    if (event.httpMethod !== "POST") return { statusCode: 200, body: "OK" };
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 200, body: "OK" };
+    }
 
     const body = JSON.parse(event.body);
     const action = body.action;
@@ -63,47 +65,58 @@ exports.handler = async (event) => {
     const commentText = action.data.text;
     const cardId = action.data.card.id;
 
-    // Match comments starting with Bug + number
-    const bugRegex = /^\s*bug\s*\d+/i;
-    if (!bugRegex.test(commentText)) {
+    // Match comments starting with "Bug <number>"
+    const bugMatch = commentText.match(/^\s*bug\s*(\d+)/i);
+    if (!bugMatch) {
       return { statusCode: 200, body: "Comment does not match Bug pattern" };
     }
 
+    const bugNumber = bugMatch[1];
+
     // 1️⃣ Get all checklists on the card
     let checklists = await getChecklists(cardId);
-    let bugChecklist = checklists.find((c) => c.name === BUG_CHECKLIST_NAME);
+    let bugChecklist = checklists.find(
+      (c) => c.name === BUG_CHECKLIST_NAME
+    );
 
     // 2️⃣ Create checklist only if it does NOT exist
     if (!bugChecklist) {
-      const created = await createChecklist(cardId, BUG_CHECKLIST_NAME);
-      bugChecklist = created;
+      await createChecklist(cardId, BUG_CHECKLIST_NAME);
 
-      // Refresh checklist object
+      // Refresh checklist list
       checklists = await getChecklists(cardId);
-      bugChecklist = checklists.find((c) => c.name === BUG_CHECKLIST_NAME);
+      bugChecklist = checklists.find(
+        (c) => c.name === BUG_CHECKLIST_NAME
+      );
     }
 
     if (!bugChecklist) {
-      throw new Error("Failed to create or find Bugs reported checklist");
+      throw new Error("Failed to create or find Bugs Reported checklist");
     }
 
-    // 3️⃣ Check if this comment already exists as a checklist item
+    // 3️⃣ Check if this bug number already exists in checklist
     const checklistData = await getChecklistItems(bugChecklist.id);
-    const existing = checklistData.checkItems.find((item) => item.name === commentText);
+
+    const existing = checklistData.checkItems.find((item) =>
+      new RegExp(`\\bbug\\s*${bugNumber}\\b`, "i").test(item.name)
+    );
 
     if (existing) {
       return {
         statusCode: 200,
         body: JSON.stringify({
-          message: "Comment already exists in checklist",
+          message: `Bug ${bugNumber} already exists — ignoring comment`,
           checklistId: bugChecklist.id,
-          comment: commentText
+          existingItem: existing.name
         })
       };
     }
 
     // 4️⃣ Add comment to checklist
-    const addedItem = await addChecklistItem(bugChecklist.id, commentText);
+    const addedItem = await addChecklistItem(
+      bugChecklist.id,
+      commentText
+    );
 
     return {
       statusCode: 200,
@@ -112,6 +125,7 @@ exports.handler = async (event) => {
           message: "Bug added to checklist",
           checklistId: bugChecklist.id,
           checklistName: bugChecklist.name,
+          bugNumber,
           comment: commentText,
           item: addedItem
         },
@@ -121,6 +135,9 @@ exports.handler = async (event) => {
     };
   } catch (err) {
     console.error("Trello webhook error:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message })
+    };
   }
 };
