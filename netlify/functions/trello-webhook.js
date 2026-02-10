@@ -23,6 +23,16 @@ async function uploadAttachment(cardId, base64Image) {
   }
 }
 
+// NEW Helper: Manually post a comment to a Trello Card
+async function postComment(cardId, text) {
+  const res = await fetch(`https://api.trello.com/1/cards/${cardId}/actions/comments?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text })
+  });
+  return res.json();
+}
+
 exports.handler = async (event) => {
   const headers = { 
     "Access-Control-Allow-Origin": "*",
@@ -34,21 +44,26 @@ exports.handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body);
+    
+    // Determine if this is a direct call from the Extension or a Webhook from Trello
+    const isExtensionRequest = body.action && body.action.data && body.action.data.attachment !== undefined;
     const action = body.action || (body.data ? { data: body.data, type: "commentCard" } : null);
 
-    if (!action || (action.type !== "commentCard" && !body.action)) {
-       return { statusCode: 200, headers, body: "Not a valid action" };
-    }
+    if (!action) return { statusCode: 200, headers, body: "No valid action" };
 
     const commentText = action.data.text;
     const cardId = action.data.card.id;
 
-    // 1️⃣ Handle Extension Media
-    if (action.data.attachment) {
-      await uploadAttachment(cardId, action.data.attachment);
+    // 1️⃣ EXTENSION-ONLY LOGIC: Post media and comment
+    if (isExtensionRequest) {
+      if (action.data.attachment) {
+        await uploadAttachment(cardId, action.data.attachment);
+      }
+      // Post the actual comment to Trello (this makes it visible in the card activity)
+      await postComment(cardId, commentText);
     }
 
-    // 2️⃣ Original Regex Logic
+    // 2️⃣ SHARED LOGIC: Match comments starting with "Bug <number>"
     const bugMatch = commentText.match(/^\s*bug\s*(\d+)/i);
     if (!bugMatch) return { statusCode: 200, headers, body: "No bug pattern" };
 
@@ -75,7 +90,7 @@ exports.handler = async (event) => {
 
     if (existing) return { statusCode: 200, headers, body: "Bug already exists" };
 
-    // 5️⃣ Add Item
+    // 5️⃣ Add Item to Checklist
     await fetch(`https://api.trello.com/1/checklists/${bugChecklist.id}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
