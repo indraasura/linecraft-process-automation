@@ -5,99 +5,104 @@ const TRELLO_KEY = process.env.TRELLO_KEY;
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
 const BUG_CHECKLIST_NAME = "Bugs Reported";
 
-// Helper: Upload Base64 image to Trello Card
-async function uploadAttachment(cardId, base64Image) {
-  try {
-    const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, "");
-    const buffer = Buffer.from(base64Data, 'base64');
-    const form = new FormData();
-    form.append("file", buffer, { filename: "bug-screenshot.png", contentType: "image/png" });
+// Helper: Upload Base64 images to Trello and return their URLs
+async function uploadAttachments(cardId, images) {
+  const urls = [];
+  for (const [index, base64] of images.entries()) {
+    try {
+      const buffer = Buffer.from(base64.replace(/^data:image\/\w+;base64,/, ""), 'base64');
+      const form = new FormData();
+      form.append("file", buffer, { filename: `bug-${index}.png`, contentType: "image/png" });
 
-    await fetch(`https://api.trello.com/1/cards/${cardId}/attachments?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
-      method: "POST",
-      body: form,
-      headers: form.getHeaders()
-    });
-  } catch (err) {
-    console.error("Attachment upload failed:", err);
+      const res = await fetch(`https://api.trello.com/1/cards/${cardId}/attachments?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
+        method: "POST",
+        body: form,
+        headers: form.getHeaders()
+      });
+      const data = await res.json();
+      if (data.url) urls.push(data.url);
+    } catch (err) { console.error("Upload failed:", err); }
   }
+  return urls;
 }
 
-// NEW Helper: Manually post a comment to a Trello Card
-async function postComment(cardId, text) {
+// Helper: Post comment with links to screenshots
+async function postComment(cardId, text, attachmentUrls) {
+  let finalBody = text;
+  if (attachmentUrls.length > 0) {
+    finalBody += "\n\n**Attachments:**\n" + attachmentUrls.join("\n");
+  }
+  
   const res = await fetch(`https://api.trello.com/1/cards/${cardId}/actions/comments?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text })
+    body: JSON.stringify({ text: finalBody })
   });
   return res.json();
 }
 
 exports.handler = async (event) => {
-  const headers = { 
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS"
-  };
-
+  const headers = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type" };
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers };
 
   try {
     const body = JSON.parse(event.body);
     
-    // Determine if this is a direct call from the Extension or a Webhook from Trello
-    const isExtensionRequest = body.action && body.action.data && body.action.data.attachment !== undefined;
-    const action = body.action || (body.data ? { data: body.data, type: "commentCard" } : null);
-
-    if (!action) return { statusCode: 200, headers, body: "No valid action" };
+    // Check if this is a direct call from the Extension (has 'isExtension' flag)
+    const isFromExtension = body.isExtension === true;
+    const action = body.action || { data: body.data };
 
     const commentText = action.data.text;
     const cardId = action.data.card.id;
 
-    // 1️⃣ EXTENSION-ONLY LOGIC: Post media and comment
-    if (isExtensionRequest) {
-      if (action.data.attachment) {
-        await uploadAttachment(cardId, action.data.attachment);
-      }
-      // Post the actual comment to Trello (this makes it visible in the card activity)
-      await postComment(cardId, commentText);
+    // ISSUE 2 FIX: If this is a Trello Webhook "echo" of a comment we JUST posted from the extension, ignore it.
+    // Trello webhooks usually include 'memberCreator'. If it's YOUR token's owner, you can skip.
+    // For now, we skip if the extension already handled the logic.
+    if (!isFromExtension && event.headers["user-agent"]?.includes("TrelloWebhooks")) {
+      // If the comment was just created by this script, Trello will send a webhook back.
+      // We check the comment text for the bug pattern.
+      // To prevent double checklist items, we rely on the Deduplication logic in Step 4.
     }
 
-    // 2️⃣ SHARED LOGIC: Match comments starting with "Bug <number>"
+    // 1️⃣ EXTENSION LOGIC: Upload media -> Post Comment -> Exit
+    if (isFromExtension) {
+      const urls = await uploadAttachments(cardId, body.attachments || []);
+      await postComment(cardId, commentText, urls);
+      // We don't add to checklist here; we let the Trello Webhook "echo" trigger the shared logic below.
+      return { statusCode: 200, headers, body: "Extension report initiated" };
+    }
+
+    // 2️⃣ SHARED WEBHOOK LOGIC: (Triggered by Trello Webhook when comment appears)
     const bugMatch = commentText.match(/^\s*bug\s*(\d+)/i);
-    if (!bugMatch) return { statusCode: 200, headers, body: "No bug pattern" };
+    if (!bugMatch) return { statusCode: 200, headers, body: "Not a bug" };
 
     const bugNumber = bugMatch[1];
 
-    // 3️⃣ Existing Checklist Automation
+    // 3️⃣ Manage Checklist
     const resChecklists = await fetch(`https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
     const checklists = await resChecklists.json();
-    let bugChecklist = checklists.find(c => c.name === BUG_CHECKLIST_NAME);
+    let bugList = checklists.find(c => c.name === BUG_CHECKLIST_NAME) || 
+                  await (await fetch(`https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: BUG_CHECKLIST_NAME })
+                  })).json();
 
-    if (!bugChecklist) {
-      const resNew = await fetch(`https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: BUG_CHECKLIST_NAME })
-      });
-      bugChecklist = await resNew.json();
-    }
-
-    // 4️⃣ Deduplication
-    const resItems = await fetch(`https://api.trello.com/1/checklists/${bugChecklist.id}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
+    // 4️⃣ Deduplication (Prevents Issue #2)
+    const resItems = await fetch(`https://api.trello.com/1/checklists/${bugList.id}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
     const checklistData = await resItems.json();
-    const existing = checklistData.checkItems.find(item => new RegExp(`\\bbug\\s*${bugNumber}\\b`, "i").test(item.name));
+    const exists = checklistData.checkItems.some(item => new RegExp(`\\bbug\\s*${bugNumber}\\b`, "i").test(item.name));
 
-    if (existing) return { statusCode: 200, headers, body: "Bug already exists" };
+    if (exists) return { statusCode: 200, headers, body: "Already in list" };
 
-    // 5️⃣ Add Item to Checklist
-    await fetch(`https://api.trello.com/1/checklists/${bugChecklist.id}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
+    // 5️⃣ Add Item
+    await fetch(`https://api.trello.com/1/checklists/${bugList.id}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: commentText })
     });
 
-    return { statusCode: 200, headers, body: "Success" };
+    return { statusCode: 200, headers, body: "Checklist updated" };
   } catch (err) {
     return { statusCode: 500, headers, body: err.message };
   }
