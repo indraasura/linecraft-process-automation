@@ -1,88 +1,35 @@
 const fetch = require("node-fetch");
-
-const BOARDS = [
-  "68e4e8e2007c3a7003bcc1bf", // Auto interaction
-  "64ad254fa293a6e863b6436d", // Bugs tracker
-  "64aba8a268ebd9d0b07835c2", // Product engineering
-  "687de71a54155a2c409b0aaf", // Rishi
-  "657842fda2700f8aaffb40e1", // On call
-]
+const BOARDS = ["68e4e8e2007c3a7003bcc1bf", "64ad254fa293a6e863b6436d", "64aba8a268ebd9d0b07835c2", "687de71a54155a2c409b0aaf", "657842fda2700f8aaffb40e1"];
 
 exports.handler = async (event) => {
   const key = process.env.TRELLO_KEY;
   const token = process.env.TRELLO_TOKEN;
-  const callbackURL =
-    "https://workspaceautomation.netlify.app/.netlify/functions/trello-webhook";
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+  };
+
+  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers };
 
   try {
-    // GET: list existing webhooks
+    // GET: Load Boards
     if (event.httpMethod === "GET") {
-      const res = await fetch(
-        `https://api.trello.com/1/tokens/${token}/webhooks?key=${key}`
-      );
-      const data = await res.json();
-      return { statusCode: 200, body: JSON.stringify(data, null, 2) };
+      const boards = await Promise.all(BOARDS.map(async id => {
+        const r = await fetch(`https://api.trello.com/1/boards/${id}?key=${key}&token=${token}&fields=name`);
+        return r.json();
+      }));
+      return { statusCode: 200, headers, body: JSON.stringify(boards) };
     }
 
-    // POST: create webhooks for all boards (if not exists)
+    // POST: Load Cards for a board
     if (event.httpMethod === "POST") {
-      const results = [];
-      const existingRes = await fetch(
-        `https://api.trello.com/1/tokens/${token}/webhooks?key=${key}`
-      );
-      const existingWebhooks = await existingRes.json();
-
-      for (const boardId of BOARDS) {
-        const exists = existingWebhooks.some(
-          (w) => w.idModel === boardId && w.callbackURL === callbackURL
-        );
-
-        if (exists) {
-          results.push({
-            boardId,
-            status: 200,
-            response: "Webhook already exists for this board"
-          });
-          continue;
-        }
-
-        const res = await fetch(
-          `https://api.trello.com/1/webhooks/?key=${key}&token=${token}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: new URLSearchParams({ callbackURL, idModel: boardId })
-          }
-        );
-
-        const text = await res.text();
-        results.push({ boardId, status: res.status, response: text });
-      }
-
-      return { statusCode: 200, body: JSON.stringify(results, null, 2) };
+      const boardId = event.queryStringParameters.boardId;
+      const r = await fetch(`https://api.trello.com/1/boards/${boardId}/cards?key=${key}&token=${token}&fields=name`);
+      const cards = await r.json();
+      return { statusCode: 200, headers, body: JSON.stringify(cards) };
     }
-
-    // DELETE: remove webhook by id (send ?id=WEBHOOK_ID)
-    if (event.httpMethod === "DELETE") {
-      const { id } = event.queryStringParameters || {};
-      if (!id) return { statusCode: 400, body: "Missing webhook ID" };
-
-      const res = await fetch(
-        `https://api.trello.com/1/webhooks/${id}?key=${key}&token=${token}`,
-        { method: "DELETE" }
-      );
-
-      if (res.status === 200) {
-        return { statusCode: 200, body: `Webhook ${id} deleted successfully` };
-      } else {
-        const text = await res.text();
-        return { statusCode: res.status, body: text };
-      }
-    }
-
-    return { statusCode: 405, body: "Method not allowed" };
   } catch (err) {
-    console.error("Manage webhook error:", err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    return { statusCode: 500, headers, body: err.message };
   }
 };

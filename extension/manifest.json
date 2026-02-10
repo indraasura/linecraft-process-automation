@@ -1,17 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "Trello Bug Reporter Pro",
+  "name": "Trello Bug Reporter",
   "version": "1.0.0",
-  "description": "One-click bug reporting with media capture.",
-  "permissions": ["sidePanel", "storage", "tabs", "activeTab"],
-  "host_permissions": ["https://*.trello.com/*", "https://your-netlify-app.netlify.app/*"],
-  "action": {
-    "default_title": "Open Bug Reporter"
-  },
-  "side_panel": {
-    "default_path": "sidepanel.html"
-  },
-  "background": {
-    "service_worker": "background.js"
-  }
+  "permissions": ["sidePanel", "activeTab", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "side_panel": { "default_path": "sidepanel.html" },
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Open Reporter" }
 }
