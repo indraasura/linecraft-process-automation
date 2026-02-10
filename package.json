@@ -1,8 +1,11 @@
 {
   "name": "trello-bug-automation",
-  "version": "1.0.0",
-  "private": true,
+  "version": "1.1.0",
+  "description": "Trello automation with media attachment support",
+  "main": "index.js",
   "dependencies": {
-    "node-fetch": "^2.6.9"
-  }
+    "node-fetch": "^2.6.9",
+    "form-data": "^4.0.0"
+  },
+  "private": true
 }

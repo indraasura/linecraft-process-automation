@@ -1,63 +1,80 @@
 const fetch = require("node-fetch");
+const FormData = require("form-data");
 
 const TRELLO_KEY = process.env.TRELLO_KEY;
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
 const BUG_CHECKLIST_NAME = "Bugs Reported";
 
-// Get checklists on a card
+/**
+ * Uploads a base64 image as an attachment to a Trello card.
+ */
+async function uploadAttachment(cardId, base64Image, description) {
+  try {
+    // Remove header from base64 string and convert to buffer
+    const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    const form = new FormData();
+    form.append("file", buffer, { 
+      filename: "bug-screenshot.png", 
+      contentType: "image/png" 
+    });
+    form.append("name", `Reported Attachment: ${new Date().toISOString()}`);
+
+    const res = await fetch(
+      `https://api.trello.com/1/cards/${cardId}/attachments?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`,
+      {
+        method: "POST",
+        body: form,
+        headers: form.getHeaders()
+      }
+    );
+    return await res.json();
+  } catch (err) {
+    console.error("Critical: Attachment upload failed:", err);
+    return null;
+  }
+}
+
+// Trello API Helpers
 async function getChecklists(cardId) {
-  const res = await fetch(
-    `https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`
-  );
+  const res = await fetch(`https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
   return res.json();
 }
 
-// Create a checklist
 async function createChecklist(cardId, name) {
-  const res = await fetch(
-    `https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name })
-    }
-  );
+  const res = await fetch(`https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name })
+  });
   return res.json();
 }
 
-// Add item to checklist
 async function addChecklistItem(checklistId, text) {
-  const res = await fetch(
-    `https://api.trello.com/1/checklists/${checklistId}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: text })
-    }
-  );
+  const res = await fetch(`https://api.trello.com/1/checklists/${checklistId}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: text })
+  });
   return res.json();
 }
 
-// Get items in a checklist
 async function getChecklistItems(checklistId) {
-  const res = await fetch(
-    `https://api.trello.com/1/checklists/${checklistId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`
-  );
+  const res = await fetch(`https://api.trello.com/1/checklists/${checklistId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
   return res.json();
 }
 
 exports.handler = async (event) => {
   try {
-    // HEAD request for Trello webhook validation
+    // Webhook validation for Trello
     if (event.httpMethod === "HEAD") return { statusCode: 200 };
-
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 200, body: "OK" };
-    }
+    if (event.httpMethod !== "POST") return { statusCode: 200, body: "OK" };
 
     const body = JSON.parse(event.body);
     const action = body.action;
 
+    // Ensure we are dealing with a comment action
     if (!action || action.type !== "commentCard") {
       return { statusCode: 200, body: "Not a commentCard action" };
     }
@@ -65,7 +82,12 @@ exports.handler = async (event) => {
     const commentText = action.data.text;
     const cardId = action.data.card.id;
 
-    // Match comments starting with "Bug <number>"
+    // 1️⃣ Handle Extension Media (if present in the payload)
+    if (action.data.attachment) {
+      await uploadAttachment(cardId, action.data.attachment, commentText);
+    }
+
+    // 2️⃣ Match comments starting with "Bug <number>"
     const bugMatch = commentText.match(/^\s*bug\s*(\d+)/i);
     if (!bugMatch) {
       return { statusCode: 200, body: "Comment does not match Bug pattern" };
@@ -73,30 +95,16 @@ exports.handler = async (event) => {
 
     const bugNumber = bugMatch[1];
 
-    // 1️⃣ Get all checklists on the card
+    // 3️⃣ Manage Checklist: Get, Create, or Update
     let checklists = await getChecklists(cardId);
-    let bugChecklist = checklists.find(
-      (c) => c.name === BUG_CHECKLIST_NAME
-    );
-
-    // 2️⃣ Create checklist only if it does NOT exist
-    if (!bugChecklist) {
-      await createChecklist(cardId, BUG_CHECKLIST_NAME);
-
-      // Refresh checklist list
-      checklists = await getChecklists(cardId);
-      bugChecklist = checklists.find(
-        (c) => c.name === BUG_CHECKLIST_NAME
-      );
-    }
+    let bugChecklist = checklists.find((c) => c.name === BUG_CHECKLIST_NAME);
 
     if (!bugChecklist) {
-      throw new Error("Failed to create or find Bugs Reported checklist");
+      bugChecklist = await createChecklist(cardId, BUG_CHECKLIST_NAME);
     }
 
-    // 3️⃣ Check if this bug number already exists in checklist
+    // 4️⃣ Deduplication Check
     const checklistData = await getChecklistItems(bugChecklist.id);
-
     const existing = checklistData.checkItems.find((item) =>
       new RegExp(`\\bbug\\s*${bugNumber}\\b`, "i").test(item.name)
     );
@@ -104,37 +112,23 @@ exports.handler = async (event) => {
     if (existing) {
       return {
         statusCode: 200,
-        body: JSON.stringify({
-          message: `Bug ${bugNumber} already exists — ignoring comment`,
-          checklistId: bugChecklist.id,
-          existingItem: existing.name
-        })
+        body: JSON.stringify({ message: `Bug ${bugNumber} already exists` })
       };
     }
 
-    // 4️⃣ Add comment to checklist
-    const addedItem = await addChecklistItem(
-      bugChecklist.id,
-      commentText
-    );
+    // 5️⃣ Add item to checklist
+    const addedItem = await addChecklistItem(bugChecklist.id, commentText);
 
     return {
       statusCode: 200,
-      body: JSON.stringify(
-        {
-          message: "Bug added to checklist",
-          checklistId: bugChecklist.id,
-          checklistName: bugChecklist.name,
-          bugNumber,
-          comment: commentText,
-          item: addedItem
-        },
-        null,
-        2
-      )
+      body: JSON.stringify({
+        status: "success",
+        bugNumber,
+        item: addedItem
+      }, null, 2)
     };
   } catch (err) {
-    console.error("Trello webhook error:", err);
+    console.error("Webhook processing error:", err);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: err.message })
