@@ -1,185 +1,184 @@
-/**
- * sidepanel.js
- * Comprehensive logic for Trello Bug Reporter Extension
- */
-
-// 1. Configuration: Update this with your actual Netlify site URL
 const NETLIFY_BASE = "https://workspaceautomation.netlify.app/.netlify/functions";
-
-// 2. Element Selectors
 const boardSel = document.getElementById('boardSelect');
 const cardSel = document.getElementById('cardSelect');
-const captureBtn = document.getElementById('captureBtn');
-const submitBtn = document.getElementById('submitBtn');
-const descriptionInput = document.getElementById('description');
-const loader = document.getElementById('loader');
 const gallery = document.getElementById('gallery');
-const previewImg = document.getElementById('preview');
+const loader = document.getElementById('loader');
 
-// State management for multiple screenshots
-let capturedImages = [];
+let capturedMedia = []; // Array of Base64 strings (images or videos)
+let mediaRecorder;
+let recordedChunks = [];
 
 /**
- * Phase 1: Initial Load
- * Fetches the list of boards defined in your Netlify Manager
+ * 1. Initialize Boards and Cards
  */
-async function initializeApp() {
-  try {
-    const res = await fetch(`${NETLIFY_BASE}/manage-webhooks`);
-    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    
-    const boards = await res.json();
-    
-    // Populate Board Dropdown
-    boardSel.innerHTML = '<option value="">Select Board...</option>' + 
-      boards.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
-      
-  } catch (err) {
-    console.error("Failed to load boards:", err);
-    boardSel.innerHTML = '<option>Error: Check CORS/Netlify Logs</option>';
-  }
+async function init() {
+  const res = await fetch(`${NETLIFY_BASE}/manage-webhooks`);
+  const boards = await res.json();
+  boardSel.innerHTML = '<option value="">Select Board...</option>' + 
+    boards.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
 }
 
-/**
- * Phase 2: Chained Dropdown
- * Fetches cards specifically for the selected board
- */
 boardSel.addEventListener('change', async () => {
-  const boardId = boardSel.value;
-  if (!boardId) {
-    cardSel.disabled = true;
-    cardSel.innerHTML = '<option>Select board first...</option>';
-    return;
-  }
-
   cardSel.disabled = true;
   cardSel.innerHTML = '<option>Loading cards...</option>';
-
-  try {
-    // We use a POST request to your manager to fetch cards for a specific boardId
-    const res = await fetch(`${NETLIFY_BASE}/manage-webhooks?boardId=${boardId}`, { 
-      method: 'POST' 
-    });
-    
-    if (!res.ok) throw new Error("Failed to fetch cards");
-    
-    const cards = await res.json();
-    
-    cardSel.innerHTML = cards.length > 0 
-      ? cards.map(c => `<option value="${c.id}">${c.name}</option>`).join('')
-      : '<option value="">No cards found in this board</option>';
-      
-    cardSel.disabled = false;
-  } catch (err) {
-    console.error("Failed to load cards:", err);
-    cardSel.innerHTML = '<option>Error loading cards</option>';
-  }
+  const res = await fetch(`${NETLIFY_BASE}/manage-webhooks?boardId=${boardSel.value}`, { method: 'POST' });
+  const cards = await res.json();
+  cardSel.innerHTML = cards.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  cardSel.disabled = false;
 });
 
 /**
- * Phase 3: Screen Capture
- * Captures the current active tab and adds it to the local gallery
+ * 2. Capture Suite: Images
  */
-captureBtn.addEventListener('click', () => {
+document.getElementById('captureBtn').addEventListener('click', () => {
   chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
-    if (chrome.runtime.lastError) {
-      alert("Capture failed: " + chrome.runtime.lastError.message + "\nTry refreshing the page.");
-      return;
-    }
+    addToGallery(dataUrl, 'image');
+  });
+});
 
-    // Store image in array
-    capturedImages.push(dataUrl);
+// Partial Capture (Requires content script to handle UI selection)
+document.getElementById('partialBtn').addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  // This triggers a message to the content script to start the selection box
+  chrome.tabs.sendMessage(tab.id, { action: "start-selection" });
+});
 
-    // Update Gallery UI
-    const imgContainer = document.createElement('div');
-    imgContainer.style.position = "relative";
+/**
+ * 3. Capture Suite: Video Recording
+ */
+document.getElementById('recordBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('recordBtn');
+  
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+    btn.innerText = "🎥 Record";
+    return;
+  }
+
+  // Choose screen/window to record
+  const streamId = await new Promise(resolve => {
+    chrome.desktopCapture.chooseDesktopMedia(["screen", "window"], resolve);
+  });
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: streamId } }
+  });
+
+  mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+  mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
+  mediaRecorder.onstop = () => {
+    const blob = new Blob(recordedChunks, { type: "video/webm" });
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      capturedMedia.push(reader.result);
+      addToGallery(reader.result, 'video');
+    };
+    reader.readAsDataURL(blob);
+    recordedChunks = [];
+    stream.getTracks().forEach(track => track.stop());
+  };
+
+  mediaRecorder.start();
+  btn.innerText = "⏹️ Stop";
+});
+
+/**
+ * 4. DevTools: API/Network Logging
+ */
+document.getElementById('devToolsBtn').addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+  chrome.debugger.attach({ tabId: tab.id }, "1.2", () => {
+    chrome.debugger.sendCommand({ tabId: tab.id }, "Network.enable");
+    alert("🛠️ API Logger Enabled. Network requests will be appended to description.");
     
-    const img = document.createElement('img');
-    img.src = dataUrl;
-    img.style.width = "70px";
-    img.style.height = "70px";
-    img.style.objectFit = "cover";
-    img.style.borderRadius = "6px";
-    img.style.border = "1px solid #dfe1e6";
-    
-    imgContainer.appendChild(img);
-    gallery.appendChild(imgContainer);
-    
-    // Show the most recent one in the main preview if needed, 
-    // or just rely on the gallery list
-    previewImg.src = dataUrl;
-    previewImg.style.display = 'block';
+    chrome.debugger.onEvent.addListener((source, method, params) => {
+      if (method === "Network.requestWillBeSent") {
+        const log = `\n[API] ${params.request.method} ${params.request.url.substring(0, 50)}...`;
+        document.getElementById('description').value += log;
+      }
+    });
   });
 });
 
 /**
- * Phase 4: Data Submission
- * Sends the payload to trello-webhook.js
+ * 5. Submission with Priority
  */
-submitBtn.addEventListener('click', async () => {
-  const description = descriptionInput.value;
+document.getElementById('submitBtn').addEventListener('click', async () => {
+  const priority = document.getElementById('prioritySelect').value;
+  const description = `[${priority}] ` + document.getElementById('description').value;
   const targetCardId = cardSel.value;
 
-  // Validation
-  if (!targetCardId) {
-    alert("Please select a target Trello card.");
-    return;
-  }
-  if (!description.toLowerCase().startsWith("bug")) {
-    alert("Requirement: Description must start with 'Bug [number]'");
-    return;
-  }
+  if (!description.toLowerCase().includes("bug")) return alert("Description must include 'Bug [number]'");
 
-  // UI State: Loading
-  submitBtn.disabled = true;
   loader.style.display = 'block';
 
-  /**
-   * Payload Construction
-   * We send 'isExtension: true' so the worker knows to manually 
-   * upload attachments and post the comment.
-   */
   const payload = {
-    isExtension: true, 
-    attachments: capturedImages,
-    action: {
-      data: {
-        text: description,
-        card: { id: targetCardId }
-      }
+    isExtension: true,
+    attachments: capturedMedia,
+    data: {
+      text: description,
+      card: { id: targetCardId }
     }
   };
 
   try {
-    const response = await fetch(`${NETLIFY_BASE}/trello-webhook`, {
+    await fetch(`${NETLIFY_BASE}/trello-webhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
-    if (response.ok) {
-      alert("✅ Bug Reported!\nComment posted & checklist updated.");
-      
-      // Reset Form and State
-      descriptionInput.value = "";
-      capturedImages = [];
-      gallery.innerHTML = "";
-      previewImg.style.display = 'none';
-      
-      // Optional: Close sidepanel or reload
-      // window.close(); 
-    } else {
-      const errorText = await response.text();
-      throw new Error(errorText || "Submission failed");
-    }
+    alert("✅ Success! Check Trello for the comment and checklist.");
+    location.reload();
   } catch (err) {
-    console.error("Submission Error:", err);
-    alert("Critical Error: " + err.message);
+    alert("Submission Error: " + err.message);
   } finally {
-    submitBtn.disabled = false;
     loader.style.display = 'none';
   }
 });
 
-// Run Init
-initializeApp();
+function addToGallery(src, type) {
+  capturedMedia.push(src);
+  const container = document.createElement('div');
+  const media = document.createElement(type === 'video' ? 'video' : 'img');
+  media.src = src;
+  media.style = "width: 70px; height: 70px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd;";
+  if (type === 'video') media.controls = true;
+  container.appendChild(media);
+  gallery.appendChild(container);
+}
+
+/**
+ * Add this listener to your existing sidepanel.js
+ */
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "capture-partial") {
+    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (dataUrl) => {
+      cropImage(dataUrl, request.area);
+    });
+  }
+});
+
+/**
+ * Crops the full screenshot to the selected area.
+ */
+function cropImage(dataUrl, area) {
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = area.w;
+    canvas.height = area.h;
+    const ctx = canvas.getContext('2d');
+    
+    // Draw only the selected portion of the image onto the canvas
+    ctx.drawImage(img, area.x, area.y, area.w, area.h, 0, 0, area.w, area.h);
+    
+    const croppedDataUrl = canvas.toDataURL('image/png');
+    addToGallery(croppedDataUrl, 'image'); // Existing helper function
+  };
+  img.src = dataUrl;
+}
+
+init();

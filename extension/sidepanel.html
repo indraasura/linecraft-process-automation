@@ -157,17 +157,30 @@
   </div>
 
   <div class="section-card">
-    <div class="section-card">
-      <h2>Bug Report</h2>
-      <button id="captureBtn">📸 Capture Screenshot</button>
-      <div id="gallery" style="display: flex; gap: 4px; overflow-x: auto; margin: 8px 0;"></div>
+    <h2>Bug Context</h2>
+    <label>Priority</label>
+    <select id="prioritySelect">
+      <option value="Low">Low</option>
+      <option value="Medium" selected>Medium</option>
+      <option value="High">High</option>
+      <option value="Critical">Critical</option>
+    </select>
+  </div>
 
-      <textarea id="description" rows="4" placeholder="Bug 101: Desc..."></textarea>
-      <button id="submitBtn">Submit to Trello</button>
-      <div id="loader" class="loader">Uploading...</div>
+  <div class="section-card">
+    <h2>Capture Suite</h2>
+    <div class="btn-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+      <button id="captureBtn">📸 Full Tab</button>
+      <button id="partialBtn">✂️ Partial</button>
+      <button id="recordBtn" style="background: #eb5a46; color: white;">🎥 Record</button>
+      <button id="devToolsBtn">🛠️ Log API</button>
     </div>
+    <div id="gallery"></div>
+    <textarea id="description" rows="3" placeholder="Bug 101: Desc..."></textarea>
+    <button id="submitBtn">Submit Report</button>
+  </div>
 
-    <script src="sidepanel.js"></script>
+  <script src="sidepanel.js"></script>
 </body>
 
 </html>
