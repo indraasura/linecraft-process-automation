@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Trello Bug Reporter",
+  "name": "Benchwarmer",
   "version": "1.0.0",
   "permissions": ["sidePanel", "activeTab", "tabs"],
   "host_permissions": ["<all_urls>"],
