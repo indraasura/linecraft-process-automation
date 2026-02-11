@@ -12,7 +12,7 @@ async function uploadMedia(cardId, mediaArray) {
       const isVideo = data.includes("video/webm");
       const buffer = Buffer.from(data.split(",")[1], 'base64');
       const form = new FormData();
-      form.append("file", buffer, { filename: `bug-${i}.${isVideo ? 'webm' : 'png'}`, contentType: isVideo ? 'video/webm' : 'image/png' });
+      form.append("file", buffer, { filename: `bug-${i+1}.${isVideo ? 'webm' : 'png'}`, contentType: isVideo ? 'video/webm' : 'image/png' });
       const res = await fetch(`https://api.trello.com/1/cards/${cardId}/attachments?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
         method: "POST", body: form, headers: form.getHeaders()
       });
