@@ -22,7 +22,7 @@ let recordedChunks = [];
 let isSignUp = false;
 let fullCardList = []; 
 
-// --- SESSION CHECK ---
+// --- AUTH LOGIC ---
 async function checkSession() {
     const { data: { session } } = await _supabase.auth.getSession();
     if (session) showApp(session.user);
@@ -41,7 +41,6 @@ function showAuth() {
     appSection.classList.add('hidden');
 }
 
-// --- AUTH ACTIONS ---
 document.getElementById('toggleAuth').addEventListener('click', () => {
     isSignUp = !isSignUp;
     document.getElementById('authTitle').innerText = isSignUp ? "Create Account" : "Sign In";
@@ -51,6 +50,8 @@ document.getElementById('toggleAuth').addEventListener('click', () => {
 document.getElementById('authBtn').addEventListener('click', async () => {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
+    if (!email || !password) return alert("Please fill in both fields.");
+    
     const { data, error } = isSignUp 
         ? await _supabase.auth.signUp({ email, password }) 
         : await _supabase.auth.signInWithPassword({ email, password });
@@ -63,7 +64,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
     location.reload();
 });
 
-// --- TRELLO DATA ---
+// --- TRELLO & SEARCH LOGIC ---
 async function initTrello() {
     try {
         const res = await fetch(`${NETLIFY_BASE}/manage-webhooks`);
@@ -74,10 +75,15 @@ async function initTrello() {
 }
 
 boardSel.addEventListener('change', async () => {
-    if (!boardSel.value) return;
+    if (!boardSel.value) {
+        cardSel.disabled = true;
+        cardSearch.disabled = true;
+        return;
+    }
     cardSel.disabled = true;
     cardSearch.disabled = true;
     cardSel.innerHTML = '<option>Loading...</option>';
+    
     try {
         const res = await fetch(`${NETLIFY_BASE}/manage-webhooks?boardId=${boardSel.value}`, { method: 'POST' });
         fullCardList = await res.json();
@@ -89,16 +95,20 @@ boardSel.addEventListener('change', async () => {
 });
 
 function populateCards(cards) {
+    if (cards.length === 0) {
+        cardSel.innerHTML = '<option value="">No cards found</option>';
+        return;
+    }
     cardSel.innerHTML = cards.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
 cardSearch.addEventListener('input', () => {
     const query = cardSearch.value.toLowerCase();
-    const filtered = fullCardList.filter(c => c.name.toLowerCase().includes(query));
+    const filtered = fullCardList.filter(card => card.name.toLowerCase().includes(query));
     populateCards(filtered);
 });
 
-// --- CAPTURE SUITE ---
+// --- CAPTURE LOGIC ---
 document.getElementById('captureBtn').addEventListener('click', () => {
     chrome.tabs.captureVisibleTab(null, { format: 'png' }, (url) => { if (url) addToGallery(url, 'image'); });
 });
@@ -152,8 +162,8 @@ submitBtn.addEventListener('click', async () => {
     const descVal = descInput.value.trim();
     const priority = document.getElementById('prioritySelect').value;
 
-    if (!cardSel.value) return alert("Select a Trello card.");
-    if (!titleVal || !descVal) return alert("Title and Description are mandatory.");
+    if (!cardSel.value) return alert("Please select a Trello card.");
+    if (!titleVal || !descVal) return alert("Both Title and Description are mandatory.");
     if (!titleVal.toLowerCase().startsWith("bug")) return alert("Title must start with 'Bug [number]'");
     
     loader.style.display = 'block';
@@ -161,17 +171,13 @@ submitBtn.addEventListener('click', async () => {
 
     const { data: { session } } = await _supabase.auth.getSession();
     
-    // STRUCTURED PAYLOAD
+    // 🚀 FLAT PAYLOAD FIX: Decoupled entirely from Trello Webhook structure
     const payload = {
         isExtension: true,
         attachments: capturedMedia.map(m => m.data),
-        action: { 
-            data: { 
-                title: `[${priority}] ${titleVal}`, 
-                description: descVal,              
-                card: { id: cardSel.value } 
-            } 
-        }
+        extTitle: `[${priority}] ${titleVal}`, 
+        extDescription: descVal,              
+        extCardId: cardSel.value
     };
 
     try {
@@ -183,15 +189,23 @@ submitBtn.addEventListener('click', async () => {
             },
             body: JSON.stringify(payload)
         });
+        
         if (res.ok) {
-            alert("✅ Bug Reported!");
-            await _supabase.from('bug_reports').insert([{ user_id: session.user.id, user_email: session.user.email, trello_card_id: cardSel.value, priority: priority, description: titleVal, attachment_count: capturedMedia.length }]);
+            alert("✅ Reported Successfully!");
+            await _supabase.from('bug_reports').insert([{ 
+                user_id: session.user.id, 
+                user_email: session.user.email, 
+                trello_card_id: cardSel.value, 
+                priority: priority, 
+                description: titleVal, 
+                attachment_count: capturedMedia.length 
+            }]);
             location.reload();
         } else {
-            const err = await res.text();
-            alert("Error: " + err);
+            const errorMsg = await res.text();
+            alert("Submission Error: " + errorMsg);
         }
-    } catch (err) { alert(err.message); }
+    } catch (err) { alert("Network Error: " + err.message); }
     finally { loader.style.display = 'none'; submitBtn.disabled = false; }
 });
 
