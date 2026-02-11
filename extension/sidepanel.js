@@ -156,22 +156,27 @@ function renderGallery() {
     });
 }
 
-// --- SUBMISSION LOGIC ---
+// --- SECURE SUBMISSION LOGIC ---
 submitBtn.addEventListener('click', async () => {
     const titleVal = titleInput.value.trim();
     const descVal = descInput.value.trim();
     const priority = document.getElementById('prioritySelect').value;
 
+    // MANDATORY FIELD VALIDATION
     if (!cardSel.value) return alert("Please select a Trello card.");
     if (!titleVal || !descVal) return alert("Both Title and Description are mandatory.");
-    if (!titleVal.toLowerCase().startsWith("bug")) return alert("Title must start with 'Bug [number]'");
     
+    // STRICT "Bug [number]" VALIDATION
+    const titleRegex = /^bug\s*\d+/i;
+    if (!titleRegex.test(titleVal)) return alert("Bug Title MUST start with 'Bug [number]' (e.g. Bug 123)");
+    if (!titleRegex.test(descVal)) return alert("Bug Description MUST start with 'Bug [number]' (e.g. Bug 123)");
+
     loader.style.display = 'block';
     submitBtn.disabled = true;
 
     const { data: { session } } = await _supabase.auth.getSession();
     
-    // 🚀 FLAT PAYLOAD FIX: Decoupled entirely from Trello Webhook structure
+    // 🚀 FLAT PAYLOAD: Bypasses legacy nested logic completely
     const payload = {
         isExtension: true,
         attachments: capturedMedia.map(m => m.data),
