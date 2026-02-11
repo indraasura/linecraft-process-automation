@@ -3,114 +3,71 @@
 
 <head>
   <meta charset="UTF-8">
-  <style>
-    :root {
-      --primary: #0079bf;
-      --bg: #f4f5f7;
-      --surface: #ffffff;
-      --text: #172b4d;
-    }
-
-    body {
-      font-family: -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 16px;
-    }
-
-    .card {
-      background: var(--surface);
-      border-radius: 8px;
-      padding: 16px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      margin-bottom: 16px;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    input,
-    select,
-    textarea {
-      width: 100%;
-      padding: 10px;
-      border: 2px solid #dfe1e6;
-      border-radius: 4px;
-      box-sizing: border-box;
-      margin-bottom: 12px;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 4px;
-      font-weight: 600;
-      cursor: pointer;
-      background: var(--primary);
-      color: white;
-    }
-
-    .btn-outline {
-      background: transparent;
-      border: 2px solid var(--primary);
-      color: var(--primary);
-      margin-top: 8px;
-    }
-
-    #gallery {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-  </style>
+  <title>Trello Bug Reporter Pro</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
   <div id="authSection" class="card">
-    <h2 id="authTitle">Sign In</h2>
-    <input type="email" id="email" placeholder="Email Address">
-    <input type="password" id="password" placeholder="Password">
+    <div class="auth-header">
+      <div class="auth-logo">🎯</div>
+      <h1 id="authTitle">Sign In</h1>
+      <p style="font-size: 12px; color: var(--md-text-sub); text-align: center;">Access your reporting suite</p>
+    </div>
+
+    <label>Email Address</label>
+    <input type="email" id="email" placeholder="you@company.com">
+
+    <label>Password</label>
+    <input type="password" id="password" placeholder="••••••••">
+
     <button id="authBtn">Sign In</button>
-    <button id="toggleAuth" class="btn-outline">New to Herder? Sign Up</button>
+    <button id="toggleAuth" class="btn-outline">Need an account? Sign Up</button>
   </div>
 
   <div id="appSection" class="hidden">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <span id="userDisplay" style="font-size: 11px; font-weight: 600; color: var(--md-text-sub);"></span>
+      <button id="logoutBtn"
+        style="padding: 4px 8px; font-size: 10px; background: #ebecf0; color: #172b4d;">Logout</button>
+    </div>
+
     <div class="card">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <span id="userDisplay" style="font-size: 11px; color: #5e6c84;"></span>
-        <button id="logoutBtn"
-          style="width: auto; padding: 4px 8px; font-size: 10px; background: #eb5a46;">Logout</button>
-      </div>
+      <h2>Context & Priority</h2>
       <label>Target Board</label>
       <select id="boardSelect">
-        <option>Loading...</option>
+        <option>Loading boards...</option>
       </select>
+
       <label>Target Card</label>
       <select id="cardSelect" disabled>
-        <option>Select board</option>
+        <option>Select board first</option>
       </select>
+
       <label>Priority</label>
       <select id="prioritySelect">
-        <option>Low</option>
-        <option selected>Medium</option>
-        <option>High</option>
-        <option>Critical</option>
+        <option value="Low">Low</option>
+        <option value="Medium" selected>Medium</option>
+        <option value="High">High</option>
+        <option value="Critical">Critical</option>
       </select>
     </div>
 
     <div class="card">
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-        <button id="captureBtn" style="background: #ebecf0; color: #172b4d;">📸 Capture</button>
-        <button id="recordBtn" style="background: #ebecf0; color: #172b4d;">🎥 Record</button>
+      <h2>Evidence Gallery</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+        <button id="captureBtn" class="btn-sec">📸 Full Tab</button>
+        <button id="recordBtn" class="btn-sec">🎥 Record</button>
       </div>
+
       <div id="gallery"></div>
-      <textarea id="description" rows="3" placeholder="Bug 123: What's broken?"></textarea>
-      <button id="submitBtn">Submit Report</button>
+
+      <label>Description</label>
+      <textarea id="description" rows="4" placeholder="Bug 123: Briefly explain the issue..."></textarea>
+
+      <button id="submitBtn">Submit to Trello</button>
+      <div id="loader" class="loader">🚀 Syncing report...</div>
     </div>
   </div>
 

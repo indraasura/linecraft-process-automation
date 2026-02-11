@@ -1,0 +1,75 @@
+:root {
+  --md-primary: #0079bf;
+  --md-error: #eb5a46;
+  --md-bg: #f4f5f7;
+  --md-surface: #ffffff;
+  --md-text: #172b4d;
+  --md-text-sub: #5e6c84;
+  --md-border: #dfe1e6;
+  --md-radius: 8px;
+}
+
+body {
+  font-family: -apple-system, sans-serif;
+  background-color: var(--md-bg);
+  margin: 0; padding: 16px;
+}
+
+.hidden { display: none !important; }
+
+.card {
+  background: var(--md-surface);
+  border-radius: var(--md-radius);
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  margin-bottom: 16px;
+}
+
+h2 { font-size: 11px; text-transform: uppercase; color: var(--md-text-sub); margin-bottom: 12px; }
+label { font-size: 11px; font-weight: 700; color: var(--md-text-sub); display: block; margin-bottom: 4px; }
+
+input, select, textarea {
+  width: 100%; padding: 10px; border: 2px solid var(--md-border);
+  border-radius: 4px; margin-bottom: 12px; box-sizing: border-box;
+}
+
+button {
+  padding: 10px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer;
+}
+
+#submitBtn, #authBtn { background: var(--md-primary); color: white; width: 100%; }
+.btn-sec { background: #ebecf0; color: var(--md-text); width: 100%; }
+.btn-outline { background: transparent; border: 2px solid var(--md-primary); color: var(--md-primary); width: 100%; margin-top: 8px; }
+
+/* --- GALLERY FIX --- */
+#gallery {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.thumb-wrap {
+  position: relative;
+  width: 100%;
+  padding-top: 100%; /* Square Aspect Ratio */
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--md-border);
+  background: #eee;
+}
+
+.thumb-wrap img, .thumb-wrap video {
+  position: absolute; top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; /* Forces the media to fit the square */
+}
+
+.del-btn {
+  position: absolute; top: 2px; right: 2px;
+  background: rgba(235, 90, 70, 0.9); color: white;
+  border-radius: 50%; width: 18px; height: 18px;
+  font-size: 12px; text-align: center; cursor: pointer; z-index: 10;
+}
+
+.loader { display: none; text-align: center; color: var(--md-primary); font-weight: 600; margin-top: 8px; }

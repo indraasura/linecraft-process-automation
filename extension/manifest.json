@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Herder",
-  "version": "2.0.0",
+  "version": "1.0.0",
+  "description": "Professional bug reporting with full-screen video and image capture.",
   "permissions": [
     "sidePanel",
     "storage",
@@ -14,7 +15,13 @@
     "<all_urls>",
     "https://*.supabase.co/*"
   ],
-  "side_panel": { "default_path": "sidepanel.html" },
-  "background": { "service_worker": "background.js" },
-  "action": { "default_title": "Open Reporter" }
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open Reporter"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
 }
