@@ -16,13 +16,13 @@ const loader = document.getElementById('loader');
 const titleInput = document.getElementById('bugTitle');
 const descInput = document.getElementById('description');
 
-let capturedMedia = [];
+let capturedMedia = []; 
 let mediaRecorder;
 let recordedChunks = [];
 let isSignUp = false;
-let fullCardList = []; // Stores all cards for the current board
+let fullCardList = []; 
 
-// --- AUTH LOGIC ---
+// --- AUTH ---
 async function checkSession() {
     const { data: { session } } = await _supabase.auth.getSession();
     if (session) showApp(session.user);
@@ -50,8 +50,8 @@ document.getElementById('toggleAuth').addEventListener('click', () => {
 document.getElementById('authBtn').addEventListener('click', async () => {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
-    const { data, error } = isSignUp
-        ? await _supabase.auth.signUp({ email, password })
+    const { data, error } = isSignUp 
+        ? await _supabase.auth.signUp({ email, password }) 
         : await _supabase.auth.signInWithPassword({ email, password });
     if (error) alert(error.message);
     else if (data.user) showApp(data.user);
@@ -62,12 +62,12 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
     location.reload();
 });
 
-// --- TRELLO & SEARCH LOGIC ---
+// --- TRELLO ---
 async function initTrello() {
     try {
         const res = await fetch(`${NETLIFY_BASE}/manage-webhooks`);
         const boards = await res.json();
-        boardSel.innerHTML = '<option value="">Select Board...</option>' +
+        boardSel.innerHTML = '<option value="">Select Board...</option>' + 
             boards.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
     } catch (e) { boardSel.innerHTML = '<option>Error loading boards</option>'; }
 }
@@ -80,19 +80,18 @@ boardSel.addEventListener('change', async () => {
     }
     cardSel.disabled = true;
     cardSearch.disabled = true;
-    cardSel.innerHTML = '<option>Loading cards...</option>';
-
+    cardSel.innerHTML = '<option>Loading...</option>';
+    
     try {
         const res = await fetch(`${NETLIFY_BASE}/manage-webhooks?boardId=${boardSel.value}`, { method: 'POST' });
         fullCardList = await res.json();
         populateCards(fullCardList);
         cardSel.disabled = false;
         cardSearch.disabled = false;
-        cardSearch.value = ""; // Clear search on board change
+        cardSearch.value = ""; 
     } catch (e) { cardSel.innerHTML = '<option>Error loading cards</option>'; }
 });
 
-// Helper to fill the dropdown
 function populateCards(cards) {
     if (cards.length === 0) {
         cardSel.innerHTML = '<option value="">No cards found</option>';
@@ -101,14 +100,13 @@ function populateCards(cards) {
     cardSel.innerHTML = cards.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
-// Search Filter Logic
 cardSearch.addEventListener('input', () => {
     const query = cardSearch.value.toLowerCase();
     const filtered = fullCardList.filter(card => card.name.toLowerCase().includes(query));
     populateCards(filtered);
 });
 
-// --- CAPTURE LOGIC ---
+// --- CAPTURE ---
 document.getElementById('captureBtn').addEventListener('click', () => {
     chrome.tabs.captureVisibleTab(null, { format: 'png' }, (url) => { if (url) addToGallery(url, 'image'); });
 });
@@ -156,45 +154,60 @@ function renderGallery() {
     });
 }
 
-// --- SUBMISSION LOGIC ---
+// --- SUBMISSION ---
 submitBtn.addEventListener('click', async () => {
-    const title = titleInput.value.trim();
-    const desc = descInput.value.trim();
+    const titleValue = titleInput.value.trim();
+    const descValue = descInput.value.trim();
     const priority = document.getElementById('prioritySelect').value;
 
     if (!cardSel.value) return alert("Please select a Trello card.");
-    if (!title || !desc) return alert("Both Title and Description are mandatory.");
-    if (!title.toLowerCase().startsWith("bug")) return alert("Title must start with 'Bug [number]'");
-
+    if (!titleValue || !descValue) return alert("Both Title and Description are mandatory.");
+    if (!titleValue.toLowerCase().startsWith("bug")) return alert("Title must start with 'Bug [number]'");
+    
     loader.style.display = 'block';
     submitBtn.disabled = true;
 
     const { data: { session } } = await _supabase.auth.getSession();
-
+    
+    // PAYLOAD FIX: Ensure structure matches the Worker's destructuring logic
     const payload = {
         isExtension: true,
         attachments: capturedMedia.map(m => m.data),
-        action: {
-            data: {
-                title: `[${priority}] ${title}`,
-                description: desc,
-                card: { id: cardSel.value }
-            }
+        action: { 
+            data: { 
+                title: `[${priority}] ${titleValue}`, 
+                description: descValue,              
+                card: { id: cardSel.value } 
+            } 
         }
     };
 
     try {
         const res = await fetch(`${NETLIFY_BASE}/trello-webhook`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${session.access_token}` 
+            },
             body: JSON.stringify(payload)
         });
         if (res.ok) {
             alert("✅ Reported!");
-            await _supabase.from('bug_reports').insert([{ user_id: session.user.id, user_email: session.user.email, trello_card_id: cardSel.value, priority: priority, description: title, attachment_count: capturedMedia.length }]);
+            // Audit Log in Supabase
+            await _supabase.from('bug_reports').insert([{ 
+                user_id: session.user.id, 
+                user_email: session.user.email, 
+                trello_card_id: cardSel.value, 
+                priority: priority, 
+                description: titleValue, 
+                attachment_count: capturedMedia.length 
+            }]);
             location.reload();
-        } else alert("Submission Error");
-    } catch (err) { alert(err.message); }
+        } else {
+            const errorMsg = await res.text();
+            alert("Submission Error: " + errorMsg);
+        }
+    } catch (err) { alert("Network Error: " + err.message); }
     finally { loader.style.display = 'none'; submitBtn.disabled = false; }
 });
 
