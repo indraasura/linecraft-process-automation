@@ -11,17 +11,13 @@
 
   <div id="authSection" class="card">
     <div class="auth-header">
-      <div class="auth-logo">🎯</div>
       <h1 id="authTitle">Sign In</h1>
       <p style="font-size: 12px; color: var(--md-text-sub); text-align: center;">Access your reporting suite</p>
     </div>
-
     <label>Email Address</label>
     <input type="email" id="email" placeholder="you@company.com">
-
     <label>Password</label>
     <input type="password" id="password" placeholder="••••••••">
-
     <button id="authBtn">Sign In</button>
     <button id="toggleAuth" class="btn-outline">Need an account? Sign Up</button>
   </div>
@@ -41,6 +37,7 @@
       </select>
 
       <label>Target Card</label>
+      <input type="text" id="cardSearch" placeholder="🔍 Search cards..." style="margin-bottom: 8px;" disabled>
       <select id="cardSelect" disabled>
         <option>Select board first</option>
       </select>
@@ -55,19 +52,21 @@
     </div>
 
     <div class="card">
-      <h2>Evidence Gallery</h2>
+      <h2>Evidence & Details</h2>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
-        <button id="captureBtn" class="btn-sec">📸 Full Tab</button>
-        <button id="recordBtn" class="btn-sec">🎥 Record</button>
+        <button id="captureBtn" class="btn-sec">Capture screenshot</button>
+        <button id="recordBtn" class="btn-sec">Record screen</button>
       </div>
-
       <div id="gallery"></div>
 
-      <label>Description</label>
-      <textarea id="description" rows="4" placeholder="Bug 123: Briefly explain the issue..."></textarea>
+      <label>Bug Title (List Item)</label>
+      <input type="text" id="bugTitle" placeholder="Bug 101: Short summary">
+
+      <label>Bug Description (Comment)</label>
+      <textarea id="description" rows="3" placeholder="Explain the steps to reproduce..."></textarea>
 
       <button id="submitBtn">Submit to Trello</button>
-      <div id="loader" class="loader">🚀 Syncing report...</div>
+      <div id="loader" class="loader">Syncing report...</div>
     </div>
   </div>
 
