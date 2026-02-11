@@ -1,16 +1,23 @@
 {
   "manifest_version": 3,
-  "name": "Benchwarmer",
-  "version": "1.4.0",
-  "permissions": ["sidePanel", "activeTab", "tabs", "desktopCapture", "debugger", "scripting"],
-  "host_permissions": ["<all_urls>"],
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"]
-    }
+  "name": "Trello Bug Reporter Pro",
+  "version": "1.5.0",
+  "description": "One-click bug reporting with full-screen video and image capture.",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "tabs",
+    "activeTab",
+    "desktopCapture"
   ],
-  "side_panel": { "default_path": "sidepanel.html" },
-  "background": { "service_worker": "background.js" },
-  "action": { "default_title": "Open Reporter" }
+  "host_permissions": ["<all_urls>"],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open Reporter"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
 }

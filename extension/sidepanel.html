@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
-  <title>Trello Bug Reporter Pro</title>
   <style>
     :root {
       --md-primary: #0079bf;
@@ -16,55 +16,45 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: var(--md-bg);
+      font-family: -apple-system, sans-serif;
+      background: var(--md-bg);
       color: var(--md-text);
       margin: 0;
       padding: 16px;
-      line-height: 1.4;
     }
 
     .card {
       background: var(--md-surface);
       border-radius: var(--md-radius);
       padding: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       margin-bottom: 16px;
     }
 
     h2 {
       font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
       color: var(--md-text-sub);
       margin: 0 0 12px 0;
     }
 
     label {
       font-size: 11px;
-      font-weight: 700;
-      color: var(--md-text-sub);
+      font-weight: bold;
       display: block;
       margin-bottom: 4px;
+      color: var(--md-text-sub);
     }
 
-    select, textarea {
+    select,
+    textarea {
       width: 100%;
       padding: 10px;
       border: 2px solid var(--md-border);
       border-radius: 4px;
-      background: #fafbfc;
-      font-size: 14px;
-      color: var(--md-text);
       box-sizing: border-box;
       margin-bottom: 12px;
-      transition: border-color 0.2s;
-    }
-
-    select:focus, textarea:focus {
-      border-color: var(--md-primary);
-      outline: none;
-      background: #fff;
+      font-size: 14px;
     }
 
     .btn-grid {
@@ -79,31 +69,37 @@
       border: none;
       border-radius: 4px;
       font-weight: 600;
-      font-size: 13px;
       cursor: pointer;
+      transition: 0.2s;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
-      transition: background 0.2s, opacity 0.2s;
     }
 
-    .btn-sec { background: #ebecf0; color: var(--md-text); }
-    .btn-sec:hover { background: #dfe1e6; }
-    
+    .btn-sec {
+      background: #ebecf0;
+      color: var(--md-text);
+    }
+
     .btn-main {
       background: var(--md-primary);
       color: white;
       width: 100%;
       padding: 14px;
-      font-size: 14px;
     }
-    .btn-main:hover { background: #026aa7; }
-    .btn-main:disabled { background: #ebecf0; color: #a5adba; cursor: not-allowed; }
 
-    .btn-danger { background: var(--md-error) !important; color: white !important; }
+    .btn-danger {
+      background: var(--md-error) !important;
+      color: white !important;
+    }
 
-    /* Gallery Styles */
+    button:disabled {
+      background: #ebecf0;
+      color: #a5adba;
+      cursor: not-allowed;
+    }
+
     #gallery {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -114,14 +110,15 @@
     .thumb-wrap {
       position: relative;
       width: 100%;
-      padding-top: 100%; /* 1:1 Aspect Ratio */
-      background: #eee;
+      padding-top: 100%;
       border-radius: 4px;
       overflow: hidden;
       border: 1px solid var(--md-border);
+      background: #eee;
     }
 
-    .thumb-wrap img, .thumb-wrap video {
+    .thumb-wrap img,
+    .thumb-wrap video {
       position: absolute;
       top: 0;
       left: 0;
@@ -134,7 +131,7 @@
       position: absolute;
       top: 2px;
       right: 2px;
-      background: rgba(235, 90, 70, 0.95);
+      background: rgba(235, 90, 70, 0.9);
       color: white;
       border-radius: 50%;
       width: 18px;
@@ -157,17 +154,19 @@
     }
   </style>
 </head>
-<body>
 
+<body>
   <div class="card">
-    <h2>Project & Severity</h2>
+    <h2>Project & Priority</h2>
     <label>Target Board</label>
-    <select id="boardSelect"><option>Loading boards...</option></select>
-    
+    <select id="boardSelect">
+      <option>Loading boards...</option>
+    </select>
     <label>Target Card</label>
-    <select id="cardSelect" disabled><option>Select board first</option></select>
-    
-    <label>Priority Level</label>
+    <select id="cardSelect" disabled>
+      <option>Select board first</option>
+    </select>
+    <label>Priority</label>
     <select id="prioritySelect">
       <option value="Low">Low</option>
       <option value="Medium" selected>Medium</option>
@@ -175,23 +174,19 @@
       <option value="Critical">Critical</option>
     </select>
   </div>
-
   <div class="card">
-    <h2>Capture Evidence</h2>
+    <h2>Evidence</h2>
     <div class="btn-grid">
       <button id="captureBtn" class="btn-sec">📸 Full Tab</button>
       <button id="recordBtn" class="btn-sec">🎥 Record Screen</button>
     </div>
-
     <div id="gallery"></div>
-
-    <label>Report Description</label>
-    <textarea id="description" rows="4" placeholder="Bug 101: Briefly describe what's happening..."></textarea>
-
+    <label>Description</label>
+    <textarea id="description" rows="4" placeholder="Bug 123: What's broken?"></textarea>
     <button id="submitBtn" class="btn-main">Submit to Trello</button>
-    <div id="loader" class="loader">🚀 Uploading evidence...</div>
+    <div id="loader" class="loader">🚀 Syncing evidence...</div>
   </div>
-
   <script src="sidepanel.js"></script>
 </body>
+
 </html>
