@@ -28,9 +28,9 @@ async function uploadMedia(cardId, mediaArray) {
   return urls;
 }
 
-async function syncChecklist(cardId, title) {
-    // Regex matches the [Priority] Bug 123 pattern
-    const bugMatch = title.match(/^\s*(\[[^\]]+\]\s*)?bug\s*(\d+)/i);
+// Fixed syncChecklist: Specifically uses the bugTitle to create the item
+async function syncChecklist(cardId, bugTitle) {
+    const bugMatch = bugTitle.match(/bug\s*(\d+)/i);
     if (!bugMatch) return;
 
     const resL = await fetch(`https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
@@ -44,15 +44,15 @@ async function syncChecklist(cardId, title) {
       list = await resNew.json();
     }
 
-    const resI = await fetch(`https://api.trello.com/1/checklists/${list.id}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
-    const checkData = await resI.json();
+    const resItems = await fetch(`https://api.trello.com/1/checklists/${list.id}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
+    const checkData = await resItems.json();
     
-    const bugNumber = bugMatch[2];
+    const bugNumber = bugMatch[1];
     const exists = checkData.checkItems.some(i => new RegExp(`\\bbug\\s*${bugNumber}\\b`, "i").test(i.name));
     
     if (!exists) {
       await fetch(`https://api.trello.com/1/checklists/${list.id}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: title })
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: bugTitle })
       });
     }
 }
@@ -62,7 +62,6 @@ exports.handler = async (event) => {
       "Access-Control-Allow-Origin": "*", 
       "Access-Control-Allow-Headers": "Content-Type, Authorization" 
   };
-  
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers };
 
   const auth = event.headers.authorization;
@@ -72,32 +71,28 @@ exports.handler = async (event) => {
     const user = jwt.verify(auth.replace("Bearer ", ""), SUPABASE_JWT_SECRET);
     const body = JSON.parse(event.body);
     
-    // CRITICAL FIX: Ensure we extract the right fields from the payload
+    // GATHER DATA FROM EXTENSION
     const actionData = body.action.data;
-    const title = actionData.title; 
-    const description = actionData.description;
+    const bugTitle = actionData.title; 
+    const bugDesc = actionData.description;
     const cardId = actionData.card.id;
 
     if (body.isExtension) {
-      // 1. Upload Media
+      // 1. Media
       const urls = await uploadMedia(cardId, body.attachments || []);
       
-      // 2. Post Comment (Description + Media)
-      // We check if description is present to avoid "undefined" text
-      const descText = description || "No description provided.";
-      const finalComment = `${descText}\n\n**Reporter:** ${user.email}\n**Proof:**\n${urls.join("\n")}`;
-      
+      // 2. Trello Comment (Description + Media)
+      const finalComment = `${bugDesc}\n\n**Reporter:** ${user.email}\n**Proof:**\n${urls.join("\n")}`;
       await fetch(`https://api.trello.com/1/cards/${cardId}/actions/comments?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: finalComment })
       });
 
-      // 3. Update Checklist (Title)
-      await syncChecklist(cardId, title);
+      // 3. Checklist Item (Title)
+      await syncChecklist(cardId, bugTitle);
 
       return { statusCode: 200, headers, body: "Success" };
     }
-
-    return { statusCode: 200, headers, body: "Webhook processed" };
+    return { statusCode: 200, headers };
   } catch (err) { 
     return { statusCode: 500, headers, body: err.message }; 
   }
