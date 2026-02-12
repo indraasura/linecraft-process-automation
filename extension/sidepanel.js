@@ -5,6 +5,7 @@ const NETLIFY_BASE = "https://workspaceautomation.netlify.app/.netlify/functions
 const { createClient } = supabase;
 const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Elements
 const authSection = document.getElementById('authSection');
 const appSection = document.getElementById('appSection');
 const boardSel = document.getElementById('boardSelect');
@@ -17,29 +18,32 @@ const titleInput = document.getElementById('bugTitle');
 const descInput = document.getElementById('description');
 
 let capturedMedia = []; 
-let mediaRecorder;
-let recordedChunks = [];
 let isSignUp = false;
 let fullCardList = []; 
 
-// --- AUTH LOGIC ---
+// --- AUTH ---
 async function checkSession() {
     const { data: { session } } = await _supabase.auth.getSession();
-    if (session) showApp(session.user);
-    else showAuth();
+    if (session) {
+        authSection.classList.add('hidden');
+        appSection.classList.remove('hidden');
+        document.getElementById('userDisplay').innerText = session.user.email;
+        initTrello();
+    } else {
+        authSection.classList.remove('hidden');
+        appSection.classList.add('hidden');
+    }
 }
 
-function showApp(user) {
-    authSection.classList.add('hidden');
-    appSection.classList.remove('hidden');
-    document.getElementById('userDisplay').innerText = user.email;
-    initTrello();
-}
-
-function showAuth() {
-    authSection.classList.remove('hidden');
-    appSection.classList.add('hidden');
-}
+document.getElementById('authBtn').addEventListener('click', async () => {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const { data, error } = isSignUp 
+        ? await _supabase.auth.signUp({ email, password }) 
+        : await _supabase.auth.signInWithPassword({ email, password });
+    if (error) alert(error.message);
+    else if (data.user) checkSession();
+});
 
 document.getElementById('toggleAuth').addEventListener('click', () => {
     isSignUp = !isSignUp;
@@ -47,24 +51,7 @@ document.getElementById('toggleAuth').addEventListener('click', () => {
     document.getElementById('authBtn').innerText = isSignUp ? "Sign Up" : "Sign In";
 });
 
-document.getElementById('authBtn').addEventListener('click', async () => {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    if (!email || !password) return alert("Please fill in both fields.");
-    
-    const { data, error } = isSignUp 
-        ? await _supabase.auth.signUp({ email, password }) 
-        : await _supabase.auth.signInWithPassword({ email, password });
-    if (error) alert(error.message);
-    else if (data.user) showApp(data.user);
-});
-
-document.getElementById('logoutBtn').addEventListener('click', async () => {
-    await _supabase.auth.signOut();
-    location.reload();
-});
-
-// --- TRELLO & SEARCH LOGIC ---
+// --- TRELLO ---
 async function initTrello() {
     try {
         const res = await fetch(`${NETLIFY_BASE}/manage-webhooks`);
@@ -75,142 +62,93 @@ async function initTrello() {
 }
 
 boardSel.addEventListener('change', async () => {
-    if (!boardSel.value) {
-        cardSel.disabled = true;
-        cardSearch.disabled = true;
-        return;
-    }
-    cardSel.disabled = true;
-    cardSearch.disabled = true;
+    if (!boardSel.value) return;
     cardSel.innerHTML = '<option>Loading...</option>';
-    
-    try {
-        const res = await fetch(`${NETLIFY_BASE}/manage-webhooks?boardId=${boardSel.value}`, { method: 'POST' });
-        fullCardList = await res.json();
-        populateCards(fullCardList);
-        cardSel.disabled = false;
-        cardSearch.disabled = false;
-        cardSearch.value = ""; 
-    } catch (e) { cardSel.innerHTML = '<option>Error loading cards</option>'; }
+    const res = await fetch(`${NETLIFY_BASE}/manage-webhooks?boardId=${boardSel.value}`, { method: 'POST' });
+    fullCardList = await res.json();
+    populateCards(fullCardList);
+    cardSearch.disabled = false;
+    cardSel.disabled = false;
 });
 
 function populateCards(cards) {
-    if (cards.length === 0) {
-        cardSel.innerHTML = '<option value="">No cards found</option>';
-        return;
-    }
     cardSel.innerHTML = cards.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
 cardSearch.addEventListener('input', () => {
     const query = cardSearch.value.toLowerCase();
-    const filtered = fullCardList.filter(card => card.name.toLowerCase().includes(query));
-    populateCards(filtered);
+    populateCards(fullCardList.filter(c => c.name.toLowerCase().includes(query)));
 });
 
-// --- CAPTURE LOGIC ---
+// --- CAPTURE ---
 document.getElementById('captureBtn').addEventListener('click', () => {
-    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (url) => { if (url) addToGallery(url, 'image'); });
+    chrome.tabs.captureVisibleTab(null, { format: 'png' }, (url) => {
+        if (url) {
+            capturedMedia.push({ id: Date.now(), data: url, type: 'image' });
+            renderGallery();
+        }
+    });
 });
-
-document.getElementById('recordBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('recordBtn');
-    if (mediaRecorder?.state === "recording") {
-        mediaRecorder.stop();
-        btn.innerText = "🎥 Record";
-        return;
-    }
-    const streamId = await new Promise(r => chrome.desktopCapture.chooseDesktopMedia(["screen", "window"], r));
-    if (!streamId) return;
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: streamId } } });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-    mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
-    mediaRecorder.onstop = () => {
-        const reader = new FileReader();
-        reader.onloadend = () => addToGallery(reader.result, 'video');
-        reader.readAsDataURL(new Blob(recordedChunks, { type: 'video/webm' }));
-        recordedChunks = [];
-        stream.getTracks().forEach(t => t.stop());
-    };
-    mediaRecorder.start();
-    btn.innerText = "⏹ Stop";
-});
-
-function addToGallery(dataUrl, type) {
-    const id = Date.now();
-    capturedMedia.push({ id, data: dataUrl, type });
-    renderGallery();
-}
 
 function renderGallery() {
     gallery.innerHTML = '';
     capturedMedia.forEach(item => {
         const wrap = document.createElement('div');
         wrap.className = 'thumb-wrap';
-        const media = document.createElement(item.type === 'video' ? 'video' : 'img');
-        media.src = item.data;
+        const img = document.createElement('img');
+        img.src = item.data;
         const del = document.createElement('div');
         del.className = 'del-btn'; del.innerHTML = '&times;';
-        del.onclick = () => { capturedMedia = capturedMedia.filter(m => m.id !== item.id); renderGallery(); };
-        wrap.appendChild(media); wrap.appendChild(del); gallery.appendChild(wrap);
+        del.onclick = () => { 
+            capturedMedia = capturedMedia.filter(m => m.id !== item.id); 
+            renderGallery(); 
+        };
+        wrap.appendChild(img); wrap.appendChild(del); gallery.appendChild(wrap);
     });
 }
 
-// --- SECURE SUBMISSION LOGIC ---
+// --- SUBMIT ---
 submitBtn.addEventListener('click', async () => {
     const titleVal = titleInput.value.trim();
     const descVal = descInput.value.trim();
     const priority = document.getElementById('prioritySelect').value;
 
-    // MANDATORY FIELD VALIDATION
-    if (!cardSel.value) return alert("Please select a Trello card.");
-    if (!titleVal || !descVal) return alert("Both Title and Description are mandatory.");
-    
-    // STRICT "Bug [number]" VALIDATION
-    const titleRegex = /^bug\s*\d+/i;
-    if (!titleRegex.test(titleVal)) return alert("Bug Title MUST start with 'Bug [number]' (e.g. Bug 123)");
-    if (!titleRegex.test(descVal)) return alert("Bug Description MUST start with 'Bug [number]' (e.g. Bug 123)");
+    if (!cardSel.value) return alert("Select a card.");
+    if (!titleVal || !descVal) return alert("Title and Description are mandatory.");
+    if (!/^bug\s*\d+/i.test(titleVal)) return alert("Title must start with 'Bug [number]'");
 
     loader.style.display = 'block';
     submitBtn.disabled = true;
 
     const { data: { session } } = await _supabase.auth.getSession();
     
-    // 🚀 FLAT PAYLOAD: Bypasses legacy nested logic completely
+    // SIMPLE PAYLOAD
     const payload = {
         isExtension: true,
-        attachments: capturedMedia.map(m => m.data),
-        extTitle: `[${priority}] ${titleVal}`, 
-        extDescription: descVal,              
-        extCardId: cardSel.value
+        bugTitle: `[${priority}] ${titleVal}`,  // Goes to Checklist
+        bugDescription: descVal,               // Goes to Comment
+        cardId: cardSel.value,
+        attachments: capturedMedia.map(m => m.data)
     };
 
     try {
         const res = await fetch(`${NETLIFY_BASE}/trello-webhook`, {
             method: 'POST',
             headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${session.access_token}` 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
             },
             body: JSON.stringify(payload)
         });
         
         if (res.ok) {
-            alert("✅ Reported Successfully!");
-            await _supabase.from('bug_reports').insert([{ 
-                user_id: session.user.id, 
-                user_email: session.user.email, 
-                trello_card_id: cardSel.value, 
-                priority: priority, 
-                description: titleVal, 
-                attachment_count: capturedMedia.length 
-            }]);
+            alert("✅ Reported!");
             location.reload();
         } else {
-            const errorMsg = await res.text();
-            alert("Submission Error: " + errorMsg);
+            const err = await res.text();
+            alert("Error: " + err);
         }
-    } catch (err) { alert("Network Error: " + err.message); }
+    } catch (e) { alert("Network Error: " + e.message); }
     finally { loader.style.display = 'none'; submitBtn.disabled = false; }
 });
 
