@@ -1,11 +1,9 @@
 {
-  "name": "trello-bug-automation",
-  "version": "1.1.0",
-  "description": "Trello automation with media attachment support",
-  "main": "index.js",
+  "name": "Herder",
+  "version": "1.0.0",
   "dependencies": {
-    "node-fetch": "^2.6.9",
-    "form-data": "^4.0.0"
-  },
-  "private": true
+    "form-data": "^4.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "node-fetch": "^2.6.7"
+  }
 }
