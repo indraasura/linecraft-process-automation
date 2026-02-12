@@ -2,18 +2,16 @@ const fetch = require("node-fetch");
 const FormData = require("form-data");
 const jwt = require("jsonwebtoken");
 
-// --- 1. DEFINE VARIABLES FIRST ---
 const TRELLO_KEY = process.env.TRELLO_KEY;
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 const BUG_CHECKLIST_NAME = "Bugs Reported";
 
-// --- 2. SAFETY CHECK SECOND ---
 if (!SUPABASE_JWT_SECRET) {
-  console.error("CRITICAL ERROR: SUPABASE_JWT_SECRET is missing. Check Netlify Environment Variables.");
+  console.error("CRITICAL ERROR: SUPABASE_JWT_SECRET is missing.");
 }
 
-// --- 3. HELPER FUNCTIONS ---
+// --- HELPER: Upload Media ---
 async function uploadMedia(cardId, mediaArray) {
   const urls = [];
   for (const [i, data] of mediaArray.entries()) {
@@ -36,11 +34,14 @@ async function uploadMedia(cardId, mediaArray) {
   return urls;
 }
 
+// --- HELPER: Sync Checklist ---
 async function syncChecklist(cardId, bugTitle) {
     const bugMatch = bugTitle.match(/bug\s*(\d+)/i);
     if (!bugMatch) return; 
 
     const bugNumber = bugMatch[1]; 
+
+    // 1. Get Lists
     const resL = await fetch(`https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
     const checklists = await resL.json();
     
@@ -50,6 +51,7 @@ async function syncChecklist(cardId, bugTitle) {
     if (existingList) {
         targetListId = existingList.id;
     } else {
+        // 2. Create List
         const resNew = await fetch(`https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: BUG_CHECKLIST_NAME })
         });
@@ -57,6 +59,7 @@ async function syncChecklist(cardId, bugTitle) {
         targetListId = newList.id;
     }
 
+    // 3. Check for Duplicate
     const resItems = await fetch(`https://api.trello.com/1/checklists/${targetListId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
     const checkData = await resItems.json();
     
@@ -72,7 +75,7 @@ async function syncChecklist(cardId, bugTitle) {
     }
 }
 
-// --- 4. MAIN HANDLER ---
+// --- MAIN HANDLER ---
 exports.handler = async (event) => {
   const headers = { 
       "Access-Control-Allow-Origin": "*", 
@@ -85,8 +88,10 @@ exports.handler = async (event) => {
   if (!auth) return { statusCode: 401, headers, body: "Unauthorized - Missing Token" };
   
   try {
-    // Verify using the Secret defined at the top
-    const user = jwt.verify(auth.replace("Bearer ", ""), SUPABASE_JWT_SECRET);
+    // FIX: Force HS256 algorithm to match Supabase
+    const token = auth.replace("Bearer ", "");
+    const user = jwt.verify(token, SUPABASE_JWT_SECRET, { algorithms: ["HS256"] });
+    
     const body = JSON.parse(event.body);
     
     if (body.isExtension) {
@@ -96,13 +101,16 @@ exports.handler = async (event) => {
           return { statusCode: 400, headers, body: "Missing mandatory fields." };
       }
 
+      // 1. Upload Media
       const urls = await uploadMedia(extCardId, attachments || []);
       
+      // 2. Post Comment
       const finalComment = `${extDescription}\n\n**Reporter:** ${user.email}\n**Evidence:**\n${urls.join("\n")}`;
       await fetch(`https://api.trello.com/1/cards/${extCardId}/actions/comments?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: finalComment })
       });
 
+      // 3. Sync Checklist
       await syncChecklist(extCardId, extTitle);
 
       return { statusCode: 200, headers, body: "Report Processed" };
