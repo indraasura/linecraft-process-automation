@@ -2,6 +2,10 @@ const fetch = require("node-fetch");
 const FormData = require("form-data");
 const jwt = require("jsonwebtoken");
 
+if (!SUPABASE_JWT_SECRET) {
+  console.error("CRITICAL ERROR: SUPABASE_JWT_SECRET is missing from Environment Variables!");
+}
+
 const TRELLO_KEY = process.env.TRELLO_KEY;
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
