@@ -260,5 +260,139 @@ submitBtn.addEventListener('click', async () => {
     finally { loader.style.display = 'none'; submitBtn.disabled = false; }
 });
 
+// --- LEADERBOARD & GAMIFICATION ---
+const tabReport = document.getElementById('tabReport');
+const tabLeaderboard = document.getElementById('tabLeaderboard');
+const viewReport = document.getElementById('viewReport');
+const viewLeaderboard = document.getElementById('viewLeaderboard');
+const leaderboardList = document.getElementById('leaderboardList');
+const toggleLeague = document.getElementById('toggleLeague'); // Checkbox for Monthly/All-Time
+const userStatsDiv = document.getElementById('userStats');
+const badgesGrid = document.getElementById('badgesGrid');
+
+let currentUserEmail = "";
+
+// Init
+async function initGamification(user) {
+    currentUserEmail = user.email;
+    loadUserStats(); // "My Data"
+    fetchLeaderboard('monthly'); // Default View
+}
+
+// 1. Switch Tabs
+tabReport.addEventListener('click', () => {
+    viewReport.classList.remove('hidden');
+    viewLeaderboard.classList.add('hidden');
+    updateTabStyles(tabReport, tabLeaderboard);
+});
+
+tabLeaderboard.addEventListener('click', () => {
+    viewReport.classList.add('hidden');
+    viewLeaderboard.classList.remove('hidden');
+    updateTabStyles(tabLeaderboard, tabReport);
+    fetchLeaderboard(toggleLeague.checked ? 'all_time' : 'monthly');
+});
+
+// 2. Toggle League (Monthly vs All-Time)
+toggleLeague.addEventListener('change', (e) => {
+    const mode = e.target.checked ? 'all_time' : 'monthly';
+    document.getElementById('leagueLabel').innerText = mode === 'monthly' ? "📅 This Month" : "🏛️ All Time";
+    fetchLeaderboard(mode);
+});
+
+function updateTabStyles(active, inactive) {
+    active.classList.add('active');
+    inactive.classList.remove('active');
+}
+
+// 3. Fetch Leaderboard Data
+async function fetchLeaderboard(mode) {
+    leaderboardList.innerHTML = '<div class="loader">Fetching rankings...</div>';
+    
+    const table = mode === 'monthly' ? 'view_monthly_league' : 'view_hall_of_fame';
+    const { data, error } = await _supabase.from(table).select('*').order('score', { ascending: false }).limit(10);
+
+    if (error) return console.error(error);
+
+    leaderboardList.innerHTML = data.map((u, i) => {
+        const isMe = u.user_email === currentUserEmail;
+        const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+        const name = u.user_email.split('@')[0];
+        
+        return `
+        <div class="leader-row ${isMe ? 'highlight-me' : ''}">
+            <div class="rank">${rank}</div>
+            <div class="user-info">
+                <span class="name">${name} ${isMe ? '(You)' : ''}</span>
+            </div>
+            <div class="score">
+                <span class="points">${u.score} pts</span>
+                <span class="sub">${u.bugs_count} bugs</span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// 4. User Stats & Badges
+async function loadUserStats() {
+    // Get ALL bugs for this user to calculate badges
+    const { data: bugs } = await _supabase.from('bug_reports').select('*').eq('user_email', currentUserEmail);
+    if (!bugs) return;
+
+    const totalBugs = bugs.length;
+    const criticals = bugs.filter(b => b.priority === 'Critical').length;
+    const score = bugs.reduce((acc, b) => {
+        const pts = b.priority === 'Critical' ? 10 : b.priority === 'High' ? 5 : b.priority === 'Medium' ? 3 : 1;
+        return acc + pts;
+    }, 0);
+
+    // Update "My Stats" Header
+    document.getElementById('myScoreDisplay').innerText = `${score} pts`;
+    document.getElementById('myBugCount').innerText = `${totalBugs} bugs`;
+
+    // Calculate Badges
+    const badges = [];
+    if (totalBugs >= 1) badges.push({ icon: '🐣', title: 'Newbie', desc: 'First bug reported' });
+    if (totalBugs >= 10) badges.push({ icon: '🏹', title: 'Hunter', desc: '10 bugs reported' });
+    if (totalBugs >= 50) badges.push({ icon: '🤖', title: 'Exterminator', desc: '50 bugs reported' });
+    if (totalBugs >= 100) badges.push({ icon: '💯', title: 'Centurion', desc: '100 bugs reported' });
+    
+    if (criticals >= 1) badges.push({ icon: '🎯', title: 'Sniper', desc: 'First Critical found' });
+    if (criticals >= 5) badges.push({ icon: '🚒', title: 'Firefighter', desc: '5 Criticals found' });
+    
+    // Time-based badges
+    const nightBugs = bugs.filter(b => {
+        const h = new Date(b.created_at).getHours();
+        return h >= 0 && h < 5;
+    });
+    if (nightBugs.length > 0) badges.push({ icon: '🦉', title: 'Night Owl', desc: 'Reported after midnight' });
+
+    const weekendBugs = bugs.filter(b => {
+        const d = new Date(b.created_at).getDay();
+        return d === 0 || d === 6;
+    });
+    if (weekendBugs.length > 0) badges.push({ icon: '⚔️', title: 'Weekend Warrior', desc: 'Reported on weekend' });
+
+    // Render Badges
+    badgesGrid.innerHTML = badges.map(b => `
+        <div class="badge" title="${b.desc}">
+            <div class="badge-icon">${b.icon}</div>
+            <div class="badge-name">${b.title}</div>
+        </div>
+    `).join('');
+    
+    // Add "Locked" slots to show there is more to achieve
+    const lockedCount = 10 - badges.length;
+    if (lockedCount > 0) {
+        for(let i=0; i<lockedCount; i++) {
+            badgesGrid.innerHTML += `
+            <div class="badge locked">
+                <div class="badge-icon">🔒</div>
+                <div class="badge-name">???</div>
+            </div>`;
+        }
+    }
+}
+
 // Start App
 checkSession();

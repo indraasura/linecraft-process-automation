@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
   <title>Trello Bug Reporter Pro</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
   <div id="authSection" class="card">
@@ -23,18 +25,23 @@
   <div id="appSection" class="hidden">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
       <span id="userDisplay" style="font-size: 11px; font-weight: 600; color: var(--md-text-sub);"></span>
-      <button id="logoutBtn" style="padding: 4px 8px; font-size: 10px; background: #ebecf0; color: #172b4d;">Logout</button>
+      <button id="logoutBtn"
+        style="padding: 4px 8px; font-size: 10px; background: #ebecf0; color: #172b4d;">Logout</button>
     </div>
 
     <div class="card">
       <h2>Context & Priority</h2>
       <label>Target Board</label>
-      <select id="boardSelect"><option>Loading boards...</option></select>
-      
+      <select id="boardSelect">
+        <option>Loading boards...</option>
+      </select>
+
       <label>Target Card</label>
       <input type="text" id="cardSearch" placeholder="🔍 Search cards..." style="margin-bottom: 8px;" disabled>
-      <select id="cardSelect" disabled><option>Select board first</option></select>
-      
+      <select id="cardSelect" disabled>
+        <option>Select board first</option>
+      </select>
+
       <label>Priority</label>
       <select id="prioritySelect">
         <option value="Low">Low</option>
@@ -63,7 +70,44 @@
     </div>
   </div>
 
+  <div id="viewLeaderboard" class="hidden">
+
+    <div class="card gamification-card">
+      <div class="my-stats-header">
+        <div class="avatar">👤</div>
+        <div>
+          <h2 style="margin:0;">My Performance</h2>
+          <div class="stats-row">
+            <span id="myScoreDisplay" class="highlight">0 pts</span> •
+            <span id="myBugCount">0 bugs</span>
+          </div>
+        </div>
+      </div>
+
+      <h3 style="margin-top: 15px; font-size: 12px; color: #5e6c84;">ACHIEVEMENTS</h3>
+      <div id="badgesGrid" class="badges-grid"></div>
+    </div>
+
+    <div class="league-toggle-container">
+      <span style="font-size: 12px; font-weight: bold;">📅 Month</span>
+      <label class="switch">
+        <input type="checkbox" id="toggleLeague">
+        <span class="slider round"></span>
+      </label>
+      <span style="font-size: 12px; font-weight: bold;">🏛️ All-Time</span>
+    </div>
+    <div id="leagueLabel" style="text-align: center; font-size: 10px; color: #5e6c84; margin-bottom: 5px;">📅 This Month
+    </div>
+
+    <div class="card" style="padding: 0;">
+      <div class="leaderboard-header">TOP HERDERS</div>
+      <div id="leaderboardList" class="leaderboard-list"></div>
+    </div>
+
+  </div>
+
   <script src="libs/supabase.js"></script>
   <script src="sidepanel.js"></script>
 </body>
+
 </html>
