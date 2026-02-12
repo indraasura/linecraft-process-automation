@@ -3,19 +3,227 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Trello Bug Reporter Pro</title>
+  <title>Herder: Bug Reporter</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Inline styles for Gamification elements */
+    .nav-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #ebecf0;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-weight: 600;
+      color: #5e6c84;
+      transition: 0.2s;
+    }
+
+    .tab-btn.active {
+      border-bottom: 2px solid #0079bf;
+      color: #172b4d;
+    }
+
+    .tab-btn:hover {
+      background-color: #f4f5f7;
+    }
+
+    .gamification-card {
+      background: linear-gradient(180deg, #fff 0%, #f4f5f7 100%);
+      border: 1px solid #dfe1e6;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 15px;
+    }
+
+    .my-stats-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      background: #dfe1e6;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .stats-row {
+      font-size: 13px;
+      color: #5e6c84;
+      margin-top: 2px;
+    }
+
+    .highlight {
+      color: #0079bf;
+      font-weight: bold;
+    }
+
+    .badges-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+      margin-top: 10px;
+    }
+
+    .badge {
+      background: #fff;
+      border: 1px solid #ebecf0;
+      border-radius: 4px;
+      padding: 4px;
+      text-align: center;
+      cursor: help;
+      transition: transform 0.1s;
+    }
+
+    .badge:hover {
+      transform: scale(1.1);
+      z-index: 10;
+      border-color: #b3bac5;
+    }
+
+    .badge.locked {
+      opacity: 0.4;
+      filter: grayscale(1);
+      background: #f9f9fa;
+    }
+
+    .badge-icon {
+      font-size: 16px;
+      display: block;
+    }
+
+    .league-toggle-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 10px 0;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #172b4d;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 32px;
+      height: 18px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked+.slider {
+      background-color: #0079bf;
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(14px);
+    }
+
+    .leader-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-bottom: 1px solid #f4f5f7;
+      transition: background 0.1s;
+    }
+
+    .leader-row:last-child {
+      border-bottom: none;
+    }
+
+    .leader-row.highlight-me {
+      background-color: #e6fcff;
+      border-left: 3px solid #0079bf;
+    }
+
+    .rank {
+      width: 25px;
+      font-weight: bold;
+      font-size: 14px;
+      text-align: center;
+      margin-right: 8px;
+    }
+
+    .user-info {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: #172b4d;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .score {
+      text-align: right;
+    }
+
+    .score .pts {
+      display: block;
+      font-weight: 700;
+      color: #0079bf;
+      font-size: 13px;
+    }
+
+    .score .sub {
+      font-size: 10px;
+      color: #6b778c;
+    }
+  </style>
 </head>
 
 <body>
 
   <div id="authSection" class="card">
     <div class="auth-header">
-      <h1 id="authTitle">Sign In</h1>
-      <p style="font-size: 12px; color: var(--md-text-sub); text-align: center;">Access your reporting suite</p>
+      <div class="auth-logo">🐑</div>
+      <h1 id="authTitle">Herder</h1>
+      <p style="font-size: 12px; color: var(--md-text-sub); text-align: center;">Workspace Automation</p>
     </div>
-    <label>Email Address</label>
-    <input type="email" id="email" placeholder="you@company.com">
+    <label>Email (@linecraft.ai)</label>
+    <input type="email" id="email" placeholder="you@linecraft.ai">
     <label>Password</label>
     <input type="password" id="password" placeholder="••••••••">
     <button id="authBtn">Sign In</button>
@@ -23,85 +231,89 @@
   </div>
 
   <div id="appSection" class="hidden">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-      <span id="userDisplay" style="font-size: 11px; font-weight: 600; color: var(--md-text-sub);"></span>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 5px 10px;">
+      <span id="userDisplay" style="font-size: 11px; font-weight: 600; color: #6b778c;"></span>
       <button id="logoutBtn"
-        style="padding: 4px 8px; font-size: 10px; background: #ebecf0; color: #172b4d;">Logout</button>
+        style="padding: 4px 8px; font-size: 10px; background: #ebecf0; color: #172b4d; border:none; border-radius:3px; cursor:pointer;">Logout</button>
     </div>
 
-    <div class="card">
-      <h2>Context & Priority</h2>
-      <label>Target Board</label>
-      <select id="boardSelect">
-        <option>Loading boards...</option>
-      </select>
-
-      <label>Target Card</label>
-      <input type="text" id="cardSearch" placeholder="🔍 Search cards..." style="margin-bottom: 8px;" disabled>
-      <select id="cardSelect" disabled>
-        <option>Select board first</option>
-      </select>
-
-      <label>Priority</label>
-      <select id="prioritySelect">
-        <option value="Low">Low</option>
-        <option value="Medium" selected>Medium</option>
-        <option value="High">High</option>
-        <option value="Critical">Critical</option>
-      </select>
+    <div class="nav-tabs">
+      <button id="tabReport" class="tab-btn active">📝 Report</button>
+      <button id="tabLeaderboard" class="tab-btn">🏆 Leaderboard</button>
     </div>
 
-    <div class="card">
-      <h2>Evidence & Details</h2>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
-        <button id="captureBtn" class="btn-sec">Full Tab</button>
-        <button id="recordBtn" class="btn-sec">Record</button>
+    <div id="viewReport">
+      <div class="card">
+        <h2>Context</h2>
+        <select id="boardSelect">
+          <option>Loading boards...</option>
+        </select>
+        <input type="text" id="cardSearch" placeholder="🔍 Search cards..." style="margin-bottom: 8px;" disabled>
+        <select id="cardSelect" disabled>
+          <option>Select board first</option>
+        </select>
+        <select id="prioritySelect">
+          <option value="Low">Low (1pt)</option>
+          <option value="Medium" selected>Medium (3pts)</option>
+          <option value="High">High (5pts)</option>
+          <option value="Critical">Critical (10pts)</option>
+        </select>
       </div>
-      <div id="gallery"></div>
 
-      <label>Bug Title (List Item)</label>
-      <input type="text" id="bugTitle" placeholder="Bug 101: Short summary">
+      <div class="card">
+        <h2>Evidence & Details</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+          <button id="captureBtn" class="btn-sec">📸 Screenshot</button>
+          <button id="recordBtn" class="btn-sec">🎥 Record</button>
+        </div>
+        <div id="gallery"></div>
 
-      <label>Bug Description (Comment)</label>
-      <textarea id="description" rows="3" placeholder="Bug 101: Explain the steps to reproduce..."></textarea>
+        <label>Bug Title (Checklist)</label>
+        <input type="text" id="bugTitle" placeholder="Bug 101: Summary">
 
-      <button id="submitBtn">Submit to Trello</button>
-      <div id="loader" class="loader">Syncing report...</div>
+        <label>Description (Comment)</label>
+        <textarea id="description" rows="3" placeholder="Steps to reproduce..."></textarea>
+
+        <button id="submitBtn">Submit Report</button>
+        <div id="loader" class="loader">🚀 Syncing report...</div>
+      </div>
     </div>
-  </div>
 
-  <div id="viewLeaderboard" class="hidden">
-
-    <div class="card gamification-card">
-      <div class="my-stats-header">
-        <div class="avatar">👤</div>
-        <div>
-          <h2 style="margin:0;">My Performance</h2>
-          <div class="stats-row">
-            <span id="myScoreDisplay" class="highlight">0 pts</span> •
-            <span id="myBugCount">0 bugs</span>
+    <div id="viewLeaderboard" class="hidden">
+      <div class="gamification-card">
+        <div class="my-stats-header">
+          <div class="avatar">👤</div>
+          <div>
+            <h2 style="margin:0; font-size:16px;">My Stats</h2>
+            <div class="stats-row">
+              <span id="myScoreDisplay" class="highlight">0 pts</span> •
+              <span id="myBugCount">0 bugs</span>
+            </div>
           </div>
         </div>
+        <div style="font-size: 10px; font-weight:700; color: #5e6c84; letter-spacing: 0.5px;">ACHIEVEMENTS</div>
+        <div id="badgesGrid" class="badges-grid"></div>
       </div>
 
-      <h3 style="margin-top: 15px; font-size: 12px; color: #5e6c84;">ACHIEVEMENTS</h3>
-      <div id="badgesGrid" class="badges-grid"></div>
-    </div>
+      <div class="league-toggle-container">
+        <span>📅 Monthly</span>
+        <label class="switch">
+          <input type="checkbox" id="toggleLeague">
+          <span class="slider round"></span>
+        </label>
+        <span>🏛️ All-Time</span>
+      </div>
 
-    <div class="league-toggle-container">
-      <span style="font-size: 12px; font-weight: bold;">📅 Month</span>
-      <label class="switch">
-        <input type="checkbox" id="toggleLeague">
-        <span class="slider round"></span>
-      </label>
-      <span style="font-size: 12px; font-weight: bold;">🏛️ All-Time</span>
-    </div>
-    <div id="leagueLabel" style="text-align: center; font-size: 10px; color: #5e6c84; margin-bottom: 5px;">📅 This Month
-    </div>
-
-    <div class="card" style="padding: 0;">
-      <div class="leaderboard-header">TOP HERDERS</div>
-      <div id="leaderboardList" class="leaderboard-list"></div>
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <div
+          style="background: #f4f5f7; padding: 8px 12px; font-size: 11px; font-weight: 700; color: #5e6c84; border-bottom: 1px solid #dfe1e6;">
+          TOP HERDERS
+        </div>
+        <div id="leaderboardList">
+          <div style="padding: 20px; text-align: center; color: #6b778c;">Loading...</div>
+        </div>
+      </div>
     </div>
 
   </div>
