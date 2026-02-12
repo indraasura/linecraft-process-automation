@@ -19,7 +19,7 @@
     "default_path": "sidepanel.html"
   },
   "action": {
-    "default_title": "Open Reporter"
+    "default_title": "Open Recorder"
   },
   "background": {
     "service_worker": "background.js"
