@@ -2,16 +2,18 @@ const fetch = require("node-fetch");
 const FormData = require("form-data");
 const jwt = require("jsonwebtoken");
 
-if (!SUPABASE_JWT_SECRET) {
-  console.error("CRITICAL ERROR: SUPABASE_JWT_SECRET is missing from Environment Variables!");
-}
-
+// --- 1. DEFINE VARIABLES FIRST ---
 const TRELLO_KEY = process.env.TRELLO_KEY;
 const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 const BUG_CHECKLIST_NAME = "Bugs Reported";
 
-// Helper: Upload Media
+// --- 2. SAFETY CHECK SECOND ---
+if (!SUPABASE_JWT_SECRET) {
+  console.error("CRITICAL ERROR: SUPABASE_JWT_SECRET is missing. Check Netlify Environment Variables.");
+}
+
+// --- 3. HELPER FUNCTIONS ---
 async function uploadMedia(cardId, mediaArray) {
   const urls = [];
   for (const [i, data] of mediaArray.entries()) {
@@ -34,15 +36,11 @@ async function uploadMedia(cardId, mediaArray) {
   return urls;
 }
 
-// Helper: Sync Checklist & Prevent Duplicates
 async function syncChecklist(cardId, bugTitle) {
-    // Extracts the exact number after "Bug " (e.g., gets "123" from "[High] Bug 123: Login fails")
     const bugMatch = bugTitle.match(/bug\s*(\d+)/i);
     if (!bugMatch) return; 
 
     const bugNumber = bugMatch[1]; 
-
-    // 1. Get all checklists on the card
     const resL = await fetch(`https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
     const checklists = await resL.json();
     
@@ -52,7 +50,6 @@ async function syncChecklist(cardId, bugTitle) {
     if (existingList) {
         targetListId = existingList.id;
     } else {
-        // 2. Create the checklist if it doesn't exist yet
         const resNew = await fetch(`https://api.trello.com/1/cards/${cardId}/checklists?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: BUG_CHECKLIST_NAME })
         });
@@ -60,17 +57,14 @@ async function syncChecklist(cardId, bugTitle) {
         targetListId = newList.id;
     }
 
-    // 3. Fetch existing items to check for duplicates
     const resItems = await fetch(`https://api.trello.com/1/checklists/${targetListId}?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`);
     const checkData = await resItems.json();
     
-    // 4. Duplicate Check: Search for "bug 123" in existing item names
     const isDuplicate = checkData.checkItems.some(item => {
         const regex = new RegExp(`\\bbug\\s*${bugNumber}\\b`, "i");
         return regex.test(item.name);
     });
     
-    // 5. Add only if it's not a duplicate
     if (!isDuplicate) {
         await fetch(`https://api.trello.com/1/checklists/${targetListId}/checkItems?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: bugTitle })
@@ -78,6 +72,7 @@ async function syncChecklist(cardId, bugTitle) {
     }
 }
 
+// --- 4. MAIN HANDLER ---
 exports.handler = async (event) => {
   const headers = { 
       "Access-Control-Allow-Origin": "*", 
@@ -90,34 +85,29 @@ exports.handler = async (event) => {
   if (!auth) return { statusCode: 401, headers, body: "Unauthorized - Missing Token" };
   
   try {
+    // Verify using the Secret defined at the top
     const user = jwt.verify(auth.replace("Bearer ", ""), SUPABASE_JWT_SECRET);
     const body = JSON.parse(event.body);
     
-    // 🚀 FLAT PAYLOAD LOGIC: Explicitly mapped fields, zero nested Trello guesswork
     if (body.isExtension) {
       const { extTitle, extDescription, extCardId, attachments } = body;
 
-      // Fail-safe validation
       if (!extTitle || !extDescription || !extCardId) {
-          return { statusCode: 400, headers, body: "Missing mandatory fields in payload." };
+          return { statusCode: 400, headers, body: "Missing mandatory fields." };
       }
 
-      // 1. Upload Media
       const urls = await uploadMedia(extCardId, attachments || []);
       
-      // 2. Trello Comment (Description ONLY + Media URLs)
       const finalComment = `${extDescription}\n\n**Reporter:** ${user.email}\n**Evidence:**\n${urls.join("\n")}`;
       await fetch(`https://api.trello.com/1/cards/${extCardId}/actions/comments?key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: finalComment })
       });
 
-      // 3. Trello Checklist (Title ONLY)
       await syncChecklist(extCardId, extTitle);
 
-      return { statusCode: 200, headers, body: "Report Processed Successfully" };
+      return { statusCode: 200, headers, body: "Report Processed" };
     }
 
-    // Ignore non-extension requests to prevent loop crashes
     return { statusCode: 200, headers, body: "Ignored" };
 
   } catch (err) { 
