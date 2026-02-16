@@ -374,4 +374,21 @@
     <div class="editor-tools">
       <button class="editor-btn active" id="toolCrop">✂️ Crop</button>
       <button class="editor-btn" id="toolHighlight">🖍️ Highlight</button>
-      <button class
+      <button class="editor-btn" id="toolText">🔤 Text</button>
+      <div style="flex: 1;"></div>
+      <button class="editor-btn" id="btnSaveEdit" style="background: #0079bf; color: white; border: none;">✅
+        Done</button>
+      <button class="editor-btn" id="btnCancelEdit">❌</button>
+    </div>
+    <div class="canvas-container">
+      <canvas id="screenshotCanvas"></canvas>
+    </div>
+    <p style="font-size: 10px; color: #6b778c; text-align: center; margin-top: 5px;">Drag to crop/highlight. Click for
+      text.</p>
+  </div>
+
+  <script src="libs/supabase.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+
+</html>
