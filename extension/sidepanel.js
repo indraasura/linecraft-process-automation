@@ -38,7 +38,7 @@ const btnSaveEdit = document.getElementById('btnSaveEdit');
 const btnCancelEdit = document.getElementById('btnCancelEdit');
 
 // --- STATE ---
-let capturedMedia = [];
+let capturedMedia = []; 
 let mediaRecorder;
 let recordedChunks = [];
 let isSignUp = false;
@@ -49,7 +49,7 @@ let currentUserEmail = "";
 let currentTool = 'crop'; // 'crop', 'highlight', 'text'
 let isDrawing = false;
 let startX, startY;
-let savedCanvasState = null;
+let savedCanvasState = null; 
 
 
 // ==========================================
@@ -170,7 +170,7 @@ canvas.addEventListener('mousedown', (e) => {
     isDrawing = true;
     const { x, y } = getCoords(e);
     startX = x; startY = y;
-
+    
     // Save state before drawing so we can render live previews (like crop box)
     savedCanvasState = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
@@ -192,7 +192,7 @@ canvas.addEventListener('mousemove', (e) => {
         ctx.strokeStyle = '#0079bf';
         ctx.lineWidth = 2;
         ctx.strokeRect(startX, startY, x - startX, y - startY); // Draw border
-    }
+    } 
     else if (currentTool === 'highlight') {
         ctx.lineTo(x, y);
         ctx.strokeStyle = 'rgba(255, 235, 59, 0.4)'; // Yellow highlighter
@@ -217,7 +217,7 @@ canvas.addEventListener('mouseup', (e) => {
             const cropX = Math.min(startX, x);
             const cropY = Math.min(startY, y);
             const croppedImg = ctx.getImageData(cropX, cropY, width, height);
-
+            
             canvas.width = width;
             canvas.height = height;
             ctx.putImageData(croppedImg, 0, 0);
@@ -225,7 +225,7 @@ canvas.addEventListener('mouseup', (e) => {
             // Clicked without dragging, cancel crop preview
             ctx.putImageData(savedCanvasState, 0, 0);
         }
-    }
+    } 
     else if (currentTool === 'text') {
         const text = prompt("Enter text to add:");
         if (text) {
@@ -277,7 +277,7 @@ recordBtn.addEventListener('click', async () => {
             };
             reader.readAsDataURL(blob);
             recordedChunks = [];
-            stream.getTracks().forEach(track => track.stop());
+            stream.getTracks().forEach(track => track.stop()); 
             recordBtn.innerText = "🎥 Record";
         };
         stream.getVideoTracks()[0].onended = () => { if (mediaRecorder.state === "recording") mediaRecorder.stop(); };
@@ -315,7 +315,7 @@ submitBtn.addEventListener('click', async () => {
 
     loader.style.display = 'block'; submitBtn.disabled = true;
     const { data: { session } } = await _supabase.auth.getSession();
-
+    
     const payload = { isExtension: true, bugTitle: `[${priority}] ${titleVal}`, bugDescription: descVal, cardId: cardSel.value, attachments: capturedMedia.map(m => m.data) };
 
     try {
@@ -324,7 +324,7 @@ submitBtn.addEventListener('click', async () => {
         });
         if (res.ok) {
             await _supabase.from('bug_reports').insert([{ user_id: session.user.id, user_email: session.user.email, trello_card_id: cardSel.value, priority: priority, description: titleVal, attachment_count: capturedMedia.length }]);
-            alert("✅ Reported! +Points added."); location.reload();
+            alert("✅ Reported! +Points added."); location.reload(); 
         } else alert("Submission Error: " + await res.text());
     } catch (e) { alert("Network Error: " + e.message); }
     finally { loader.style.display = 'none'; submitBtn.disabled = false; }
@@ -346,8 +346,39 @@ async function fetchLeaderboard(mode) {
     const { data, error } = await _supabase.from(table).select('*').order('score', { ascending: false }).limit(10);
     if (error) return leaderboardList.innerHTML = '<div style="color:red; text-align:center;">Failed to load.</div>';
     if (!data || data.length === 0) return leaderboardList.innerHTML = '<div style="padding:20px; text-align:center; color:#6b778c;">No bugs reported yet!</div>';
-
+    
     leaderboardList.innerHTML = data.map((u, i) => {
         const isMe = u.user_email === currentUserEmail;
         const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
-        return `<div class="leader-row ${isMe ? 'highlight-me' :
+        return `<div class="leader-row ${isMe ? 'highlight-me' : ''}"><div class="rank">${rank}</div><div class="user-info">${u.user_email.split('@')[0]} ${isMe ? '(You)' : ''}</div><div class="score"><span class="pts">${u.score} pts</span><span class="sub">${u.bugs_count} bugs</span></div></div>`;
+    }).join('');
+}
+
+async function loadUserStats() {
+    const { data: bugs } = await _supabase.from('bug_reports').select('*').eq('user_email', currentUserEmail);
+    if (!bugs) return;
+
+    const totalBugs = bugs.length;
+    const score = bugs.reduce((acc, b) => acc + (b.priority === 'Critical' ? 10 : b.priority === 'High' ? 5 : b.priority === 'Medium' ? 3 : 1), 0);
+    myScoreDisplay.innerText = `${score} pts`; myBugCount.innerText = `${totalBugs} bugs`;
+
+    const badges = [];
+    if (totalBugs >= 1) badges.push({ icon: '🐣', title: 'Newbie', desc: 'First bug reported' });
+    if (totalBugs >= 10) badges.push({ icon: '🏹', title: 'Hunter', desc: '10 bugs reported' });
+    if (totalBugs >= 50) badges.push({ icon: '🤖', title: 'Exterminator', desc: '50 bugs reported' });
+    if (totalBugs >= 100) badges.push({ icon: '💯', title: 'Centurion', desc: '100 bugs reported' });
+
+    const criticals = bugs.filter(b => b.priority === 'Critical').length;
+    if (criticals >= 1) badges.push({ icon: '🎯', title: 'Sniper', desc: 'First Critical found' });
+    if (criticals >= 5) badges.push({ icon: '🚒', title: 'Firefighter', desc: '5 Criticals found' });
+    if (criticals >= 20) badges.push({ icon: '☢️', title: 'Prepper', desc: '20 Criticals found' });
+
+    if (bugs.filter(b => { const h = new Date(b.created_at).getHours(); return h >= 0 && h < 5; }).length > 0) badges.push({ icon: '🦉', title: 'Night Owl', desc: 'Logged 12AM-5AM' });
+    if (bugs.filter(b => { const d = new Date(b.created_at).getDay(); return d === 0 || d === 6; }).length > 0) badges.push({ icon: '⚔️', title: 'Warrior', desc: 'Logged on Weekend' });
+
+    badgesGrid.innerHTML = badges.map(b => `<div class="badge" title="${b.desc}"><span class="badge-icon">${b.icon}</span></div>`).join('');
+    const remaining = 10 - badges.length;
+    for(let i=0; i<remaining; i++) badgesGrid.innerHTML += `<div class="badge locked"><span class="badge-icon">🔒</span></div>`;
+}
+
+checkSession();
