@@ -239,12 +239,15 @@
     }
 
     .editor-btn {
-      padding: 6px 10px;
+      padding: 6px 8px;
       font-size: 12px;
       border: 1px solid #dfe1e6;
       background: #fff;
       border-radius: 4px;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
     .editor-btn.active {
@@ -261,12 +264,16 @@
       border-radius: 4px;
       background: #f4f5f7;
       position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
     }
 
     #screenshotCanvas {
       max-width: 100%;
       cursor: crosshair;
       display: block;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
   </style>
 </head>
@@ -372,22 +379,23 @@
 
   <div id="imageEditor" class="hidden">
     <div class="editor-tools">
-      <button class="editor-btn active" id="toolCrop">✂️ Crop</button>
-      <button class="editor-btn" id="toolHighlight">🖍️ Highlight</button>
+      <button class="editor-btn active" id="toolSelect">👆 Move</button>
+      <button class="editor-btn" id="toolCrop">✂️ Crop</button>
+      <button class="editor-btn" id="toolRect">⬛ Rect</button>
+      <button class="editor-btn" id="toolCircle">⏺ Circle</button>
       <button class="editor-btn" id="toolText">🔤 Text</button>
       <div style="flex: 1;"></div>
+      <button class="editor-btn" id="btnDelete" style="color: red; border-color: red; display: none;">🗑️</button>
       <button class="editor-btn" id="btnSaveEdit" style="background: #0079bf; color: white; border: none;">✅
         Done</button>
       <button class="editor-btn" id="btnCancelEdit">❌</button>
     </div>
-    <div class="canvas-container">
+    <div class="canvas-container" id="canvasWrap">
       <canvas id="screenshotCanvas"></canvas>
     </div>
-    <p style="font-size: 10px; color: #6b778c; text-align: center; margin-top: 5px;">Drag to crop/highlight. Click for
-      text.</p>
   </div>
 
-  <script src="libs/supabase.js"></script>
+  <script src="supabase.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 
