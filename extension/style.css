@@ -69,14 +69,14 @@ button {
 }
 
 #authBtn {
-  background: var(--md-primary);
+  background: rgb(91, 79, 201);
+  box-shadow: 4px 4px 0px black;
   color: white;
   width: 100%;
 }
 
 .btn-outline {
   background: transparent;
-  border: 2px solid var(--md-primary);
   color: var(--md-primary);
   width: 100%;
   margin-top: 8px;
@@ -188,7 +188,7 @@ button {
 /* Badges */
 .badges-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, 4fr);
   gap: 8px;
   margin-top: 8px;
 }
