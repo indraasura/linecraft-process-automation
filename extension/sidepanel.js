@@ -224,13 +224,13 @@ async function fetchLatestBugNumber(cardId) {
     try {
         // We ping your Netlify backend, passing the cardId and a new action flag
         const res = await fetch(`${NETLIFY_BASE}/manage-webhooks?action=getBugNumbers&cardId=${cardId}`);
-        
+
         if (!res.ok) throw new Error("Failed to fetch from Trello");
-        
+
         const textItems = await res.json(); // Expecting an array of strings back
-        
+
         let highestBug = 0;
-        
+
         // Scan every string for "Bug [number]" using Regex
         textItems.forEach(text => {
             const match = text.match(/bug\s*(\d+)/i);
@@ -285,38 +285,75 @@ function getCoords(e) {
     return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
 }
 
+// Master Render Loop (Draws Base Image -> Then draws all shapes on top)
 function redrawCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. Draw Background
     if (baseImage) ctx.putImageData(baseImage, 0, 0);
 
-    if (cropArea && currentTool === 'crop') {
-        ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.clearRect(cropArea.x, cropArea.y, cropArea.w, cropArea.h);
-        ctx.strokeStyle = '#0079bf'; ctx.lineWidth = 2; ctx.strokeRect(cropArea.x, cropArea.y, cropArea.w, cropArea.h);
-    }
-
+    // 2. Draw Objects (Shapes/Text)
     overlays.forEach(obj => {
         ctx.save();
-        ctx.lineWidth = 5; ctx.strokeStyle = '#ff0000'; ctx.fillStyle = '#ff0000';
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = '#ff0000'; // Red highlight color
+        ctx.fillStyle = '#ff0000';
 
-        if (obj.type === 'rect') ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+        if (obj.type === 'rect') {
+            ctx.strokeRect(obj.x, obj.y, obj.w, obj.h);
+        }
         else if (obj.type === 'circle') {
-            ctx.beginPath(); ctx.arc(obj.x + obj.w / 2, obj.y + obj.h / 2, Math.abs(obj.w / 2), 0, Math.PI * 2); ctx.stroke();
+            const radius = Math.abs(obj.w / 2);
+            ctx.beginPath();
+            ctx.arc(obj.x + obj.w / 2, obj.y + obj.h / 2, radius, 0, Math.PI * 2);
+            ctx.stroke();
         }
         else if (obj.type === 'text') {
-            ctx.font = "bold 40px Arial"; ctx.textBaseline = 'top';
-            ctx.shadowColor = "white"; ctx.shadowBlur = 8;
+            ctx.font = "bold 40px Arial";
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = "white";
+            ctx.shadowBlur = 8;
             ctx.fillText(obj.text, obj.x, obj.y);
-            obj.w = ctx.measureText(obj.text).width; obj.h = 40;
+
+            obj.w = ctx.measureText(obj.text).width;
+            obj.h = 40;
             ctx.shadowBlur = 0;
         }
 
+        // Draw Selection Bounding Box
         if (obj === activeOverlay && currentTool === 'select') {
-            ctx.strokeStyle = '#0079bf'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
-            ctx.strokeRect(Math.min(obj.x, obj.x + obj.w) - 5, Math.min(obj.y, obj.y + obj.h) - 5, Math.abs(obj.w) + 10, Math.abs(obj.h) + 10);
+            ctx.strokeStyle = '#0079bf';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 6]);
+            ctx.strokeRect(
+                Math.min(obj.x, obj.x + obj.w) - 5,
+                Math.min(obj.y, obj.y + obj.h) - 5,
+                Math.abs(obj.w) + 10,
+                Math.abs(obj.h) + 10
+            );
         }
         ctx.restore();
     });
+
+    // 3. Draw Crop Preview Overlay (FIXED)
+    if (cropArea && currentTool === 'crop') {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // Dark overlay color
+
+        // Draw 4 rectangles around the crop area instead of cutting a hole
+        // Top
+        ctx.fillRect(0, 0, canvas.width, cropArea.y);
+        // Bottom
+        ctx.fillRect(0, cropArea.y + cropArea.h, canvas.width, canvas.height - (cropArea.y + cropArea.h));
+        // Left
+        ctx.fillRect(0, cropArea.y, cropArea.x, cropArea.h);
+        // Right
+        ctx.fillRect(cropArea.x + cropArea.w, cropArea.y, canvas.width - (cropArea.x + cropArea.w), cropArea.h);
+
+        // Draw the blue border around the crop selection
+        ctx.strokeStyle = '#0079bf';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(cropArea.x, cropArea.y, cropArea.w, cropArea.h);
+    }
 }
 
 function getObjectAtPos(x, y) {
