@@ -5,277 +5,7 @@
   <meta charset="UTF-8">
   <title>Herder: Bug Reporter</title>
   <link rel="stylesheet" href="style.css">
-  <style>
-    /* --- GAMIFICATION & UI STYLES --- */
-    .nav-tabs {
-      display: flex;
-      gap: 0;
-      margin-bottom: 15px;
-      border-bottom: 1px solid #ebecf0;
-    }
 
-    .tab-btn {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      font-weight: 600;
-      color: #5e6c84;
-      transition: 0.2s;
-    }
-
-    .tab-btn.active {
-      border-bottom: 2px solid #0079bf;
-      color: #172b4d;
-    }
-
-    .tab-btn:hover {
-      background-color: #f4f5f7;
-    }
-
-    .gamification-card {
-      background: linear-gradient(180deg, #fff 0%, #f4f5f7 100%);
-      border: 1px solid #dfe1e6;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 15px;
-    }
-
-    .my-stats-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-
-    .avatar {
-      width: 40px;
-      height: 40px;
-      background: #dfe1e6;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-    }
-
-    .stats-row {
-      font-size: 13px;
-      color: #5e6c84;
-      margin-top: 2px;
-    }
-
-    .highlight {
-      color: #0079bf;
-      font-weight: bold;
-    }
-
-    .badges-grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 5px;
-      margin-top: 10px;
-    }
-
-    .badge {
-      background: #fff;
-      border: 1px solid #ebecf0;
-      border-radius: 4px;
-      padding: 4px;
-      text-align: center;
-      cursor: help;
-      transition: transform 0.1s;
-    }
-
-    .badge:hover {
-      transform: scale(1.1);
-      z-index: 10;
-      border-color: #b3bac5;
-    }
-
-    .badge.locked {
-      opacity: 0.4;
-      filter: grayscale(1);
-      background: #f9f9fa;
-    }
-
-    .badge-icon {
-      font-size: 16px;
-      display: block;
-    }
-
-    .league-toggle-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 10px 0;
-      gap: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      color: #172b4d;
-    }
-
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 32px;
-      height: 18px;
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      transition: .4s;
-      border-radius: 34px;
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 12px;
-      width: 12px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      transition: .4s;
-      border-radius: 50%;
-    }
-
-    input:checked+.slider {
-      background-color: #0079bf;
-    }
-
-    input:checked+.slider:before {
-      transform: translateX(14px);
-    }
-
-    .leader-row {
-      display: flex;
-      align-items: center;
-      padding: 8px 12px;
-      border-bottom: 1px solid #f4f5f7;
-      transition: background 0.1s;
-    }
-
-    .leader-row:last-child {
-      border-bottom: none;
-    }
-
-    .leader-row.highlight-me {
-      background-color: #e6fcff;
-      border-left: 3px solid #0079bf;
-    }
-
-    .rank {
-      width: 25px;
-      font-weight: bold;
-      font-size: 14px;
-      text-align: center;
-      margin-right: 8px;
-    }
-
-    .user-info {
-      flex: 1;
-      font-size: 13px;
-      font-weight: 500;
-      color: #172b4d;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .score {
-      text-align: right;
-    }
-
-    .score .pts {
-      display: block;
-      font-weight: 700;
-      color: #0079bf;
-      font-size: 13px;
-    }
-
-    .score .sub {
-      font-size: 10px;
-      color: #6b778c;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    /* --- EDITOR STYLES --- */
-    #imageEditor {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: #fff;
-      z-index: 999;
-      display: flex;
-      flex-direction: column;
-      padding: 10px;
-      box-sizing: border-box;
-    }
-
-    .editor-tools {
-      display: flex;
-      gap: 5px;
-      margin-bottom: 10px;
-      flex-wrap: wrap;
-    }
-
-    .editor-btn {
-      padding: 6px 8px;
-      font-size: 12px;
-      border: 1px solid #dfe1e6;
-      background: #fff;
-      border-radius: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .editor-btn.active {
-      background: #e6fcff;
-      border-color: #0079bf;
-      font-weight: bold;
-      color: #0079bf;
-    }
-
-    .canvas-container {
-      flex: 1;
-      overflow: auto;
-      border: 1px solid #ebecf0;
-      border-radius: 4px;
-      background: #f4f5f7;
-      position: relative;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-    }
-
-    #screenshotCanvas {
-      max-width: 100%;
-      cursor: crosshair;
-      display: block;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-  </style>
 </head>
 
 <body>
@@ -284,12 +14,12 @@
     <div class="auth-header">
       <div class="auth-logo">🐑</div>
       <h1 id="authTitle">Herder</h1>
-      <p style="font-size: 12px; color: var(--md-text-sub); text-align: center;">Workspace Automation</p>
+      <p style="font-size: 12px; color: var(--md-text-sub); text-align: left;">Workspace Automation</p><br>
     </div>
-    <label>Email (@linecraft.ai)</label>
-    <input type="email" id="email" placeholder="you@linecraft.ai">
+    <label>Email</label>
+    <input type="email" id="email" placeholder="your organization's email">
     <label>Password</label>
-    <input type="password" id="password" placeholder="••••••••">
+    <input type="password" id="password" placeholder="shh...">
     <button id="authBtn">Sign In</button>
     <button id="toggleAuth" class="btn-outline">Need an account? Sign Up</button>
   </div>
@@ -302,41 +32,56 @@
     </div>
 
     <div class="nav-tabs">
-      <button id="tabReport" class="tab-btn active">📝 Report</button>
-      <button id="tabLeaderboard" class="tab-btn">🏆 Leaderboard</button>
+      <button id="tabReport" class="tab-btn active">Report</button>
+      <button id="tabLeaderboard" class="tab-btn">Leaderboard</button>
     </div>
 
     <div id="viewReport">
       <div class="card">
         <h2>Context</h2>
-        <select id="boardSelect">
-          <option>Loading boards...</option>
-        </select>
-        <input type="text" id="cardSearch" placeholder="🔍 Search cards..." style="margin-bottom: 8px;" disabled>
-        <select id="cardSelect" disabled>
-          <option>Select board first</option>
-        </select>
-        <select id="prioritySelect">
-          <option value="Low">Low</option>
-          <option value="Medium" selected>Medium</option>
-          <option value="High">High</option>
-          <option value="Critical">Critical</option>
-        </select>
+
+        <div class="custom-select" id="boardSelectWrapper" data-value="">
+          <div class="custom-select-trigger" id="boardTrigger">
+            <span class="select-text">Loading boards...</span> <span class="arrow">▼</span>
+          </div>
+          <div class="custom-select-options" id="boardOptions"></div>
+        </div>
+
+        <input type="text" id="cardSearch" placeholder="Search cards..." style="margin-bottom: 8px;" disabled>
+
+        <div class="custom-select" id="cardSelectWrapper" data-value="">
+          <div class="custom-select-trigger disabled" id="cardTrigger">
+            <span class="select-text">Select board first</span> <span class="arrow">▼</span>
+          </div>
+          <div class="custom-select-options" id="cardOptions"></div>
+        </div>
+
+        <div class="custom-select" id="prioritySelectWrapper" data-value="Medium">
+          <div class="custom-select-trigger" id="priorityTrigger">
+            <span class="select-text">Medium</span> <span class="arrow">▼</span>
+          </div>
+          <div class="custom-select-options" id="priorityOptions">
+            <div class="custom-select-option" data-value="Low">Low</div>
+            <div class="custom-select-option selected" data-value="Medium">Medium</div>
+            <div class="custom-select-option" data-value="High">High</div>
+            <div class="custom-select-option" data-value="Critical">Critical</div>
+          </div>
+        </div>
       </div>
 
       <div class="card">
         <h2>Evidence & Details</h2>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
-          <button id="captureBtn" class="btn-sec">📸 Screenshot</button>
-          <button id="recordBtn" class="btn-sec">🎥 Record</button>
+          <button id="captureBtn" class="btn-screenshot">Take screenshot</button>
+          <button id="recordBtn" class="btn-record">Record screen</button>
         </div>
         <div id="gallery"></div>
 
         <label>Bug Title (Checklist Item)</label>
-        <input type="text" id="bugTitle" placeholder="Bug 101: Summary">
+        <input type="text" id="bugTitle" class="text-input" placeholder="Bug 101: Summary">
 
         <label>Description (Comment)</label>
-        <textarea id="description" rows="3" placeholder="Steps to reproduce..."></textarea>
+        <textarea id="description" rows="3" class="text-input" placeholder="Steps to reproduce..."></textarea>
 
         <button id="submitBtn">Submit Report</button>
         <div id="loader" class="loader">🚀 Syncing report...</div>
@@ -349,22 +94,17 @@
           <div class="avatar">👤</div>
           <div>
             <h2 style="margin:0; font-size:16px;">My Stats</h2>
-            <div class="stats-row">
-              <span id="myScoreDisplay" class="highlight">0 pts</span> •
-              <span id="myBugCount">0 bugs</span>
-            </div>
+            <div class="stats-row"><span id="myScoreDisplay" class="highlight">0 pts</span> • <span id="myBugCount">0
+                bugs</span></div>
           </div>
         </div>
         <div style="font-size: 10px; font-weight:700; color: #5e6c84; letter-spacing: 0.5px;">ACHIEVEMENTS</div>
         <div id="badgesGrid" class="badges-grid"></div>
       </div>
       <div class="league-toggle-container">
-        <span>📅 Monthly</span>
-        <label class="switch">
-          <input type="checkbox" id="toggleLeague">
-          <span class="slider round"></span>
-        </label>
-        <span>🏛️ All-Time</span>
+        <span>Monthly</span>
+        <label class="switch"><input type="checkbox" id="toggleLeague"><span class="slider round"></span></label>
+        <span>All-Time</span>
       </div>
       <div class="card" style="padding: 0; overflow: hidden;">
         <div
@@ -380,9 +120,10 @@
   <div id="imageEditor" class="hidden">
     <div class="editor-tools">
       <button class="editor-btn active" id="toolSelect">👆 Move</button>
-      <button class="editor-btn" id="toolRect">Add Rectangle</button>
-      <button class="editor-btn" id="toolCircle">Add Circle</button>
-      <button class="editor-btn" id="toolText">Add Text</button>
+      <button class="editor-btn" id="toolCrop">✂️ Crop</button>
+      <button class="editor-btn" id="toolRect">⬛ Rect</button>
+      <button class="editor-btn" id="toolCircle">⏺ Circle</button>
+      <button class="editor-btn" id="toolText">🔤 Text</button>
       <div style="flex: 1;"></div>
       <button class="editor-btn" id="btnDelete" style="color: red; border-color: red; display: none;">🗑️</button>
       <button class="editor-btn" id="btnSaveEdit" style="background: #0079bf; color: white; border: none;">✅
@@ -394,7 +135,7 @@
     </div>
   </div>
 
-  <script src="libs/supabase.js"></script>
+  <script src="./libs/supabase.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 
