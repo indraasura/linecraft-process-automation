@@ -55,24 +55,27 @@ let currentUserEmail = "";
 // ==========================================
 
 function setupCustomSelect(wrapperElement, onChangeCallback) {
+    // Prevent duplicate event listeners if initialized multiple times
+    if (wrapperElement.dataset.initialized) {
+        wrapperElement.onChangeCallback = onChangeCallback;
+        return;
+    }
+    wrapperElement.dataset.initialized = 'true';
+    wrapperElement.onChangeCallback = onChangeCallback;
+
     const trigger = wrapperElement.querySelector('.custom-select-trigger');
     const optionsContainer = wrapperElement.querySelector('.custom-select-options');
     const textSpan = trigger.querySelector('.select-text');
 
-    // Open/Close
     trigger.addEventListener('click', (e) => {
         if (trigger.classList.contains('disabled')) return;
-
-        // Close all others first
         document.querySelectorAll('.custom-select-options').forEach(opt => {
             if (opt !== optionsContainer) opt.classList.remove('open');
         });
-
         optionsContainer.classList.toggle('open');
         e.stopPropagation();
     });
 
-    // Select Option (Event Delegation)
     optionsContainer.addEventListener('click', (e) => {
         const option = e.target.closest('.custom-select-option');
         if (!option) return;
@@ -80,16 +83,16 @@ function setupCustomSelect(wrapperElement, onChangeCallback) {
         const value = option.dataset.value;
         const text = option.innerText;
 
-        // Update UI
         textSpan.innerText = text;
         wrapperElement.dataset.value = value;
 
-        // Highlight Selected
         optionsContainer.querySelectorAll('.custom-select-option').forEach(opt => opt.classList.remove('selected'));
         option.classList.add('selected');
 
         optionsContainer.classList.remove('open');
-        if (onChangeCallback) onChangeCallback(value);
+
+        // Execute the attached callback
+        if (wrapperElement.onChangeCallback) wrapperElement.onChangeCallback(value);
     });
 }
 
@@ -171,6 +174,9 @@ async function loadCardsForBoard(boardId) {
     cardTrigger.classList.add('disabled');
     cardTriggerText.innerText = "Loading cards...";
 
+    // Hide pill when board changes
+    document.getElementById('latestBugPill').classList.add('hidden');
+
     try {
         const res = await fetch(`${NETLIFY_BASE}/manage-webhooks?boardId=${boardId}`, { method: 'POST' });
         fullCardList = await res.json();
@@ -188,8 +194,10 @@ async function loadCardsForBoard(boardId) {
         cardSearch.disabled = false;
         cardSearch.value = "";
 
-        // Init/Reset behavior
-        setupCustomSelect(cardSelectWrapper);
+        // Trigger the Supabase query when a card is clicked
+        setupCustomSelect(cardSelectWrapper, async (cardId) => {
+            fetchLatestBugNumber(cardId);
+        });
 
     } catch (e) { cardTriggerText.innerText = 'Error loading cards'; }
 }
@@ -207,6 +215,40 @@ cardSearch.addEventListener('input', () => {
     // Keep dropdown open while searching
     document.getElementById('cardOptions').classList.add('open');
 });
+
+async function fetchLatestBugNumber(cardId) {
+    const pill = document.getElementById('latestBugPill');
+    pill.innerText = 'Checking...';
+    pill.classList.remove('hidden');
+
+    try {
+        // Find the most recent bug logged for this specific Trello card
+        const { data, error } = await _supabase
+            .from('bug_reports')
+            .select('description') // "description" column holds the title in our DB
+            .eq('trello_card_id', cardId)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            pill.innerText = 'No bugs reported yet';
+        } else {
+            // Extract the number from strings like "Bug 101: Summary"
+            const lastTitle = data[0].description;
+            const match = lastTitle.match(/bug\s*(\d+)/i);
+
+            if (match) {
+                pill.innerText = `Latest: Bug ${match[1]}`;
+            } else {
+                pill.innerText = `Latest: Unknown`;
+            }
+        }
+    } catch (e) {
+        pill.innerText = 'Error checking bugs';
+    }
+}
 
 
 // ==========================================
