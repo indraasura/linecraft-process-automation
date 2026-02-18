@@ -1,85 +1,119 @@
-const fetch = require("node-fetch");
-const BOARDS = ["68e4e8e2007c3a7003bcc1bf", "64ad254fa293a6e863b6436d", "64aba8a268ebd9d0b07835c2", "687de71a54155a2c409b0aaf", "657842fda2700f8aaffb40e1"];
+// Define the CORS headers to allow cross-origin requests
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*', // Allows your local server and the extension
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+};
 
-// Add this inside your Netlify function handler
-
-const action = event.queryStringParameters.action;
-const cardId = event.queryStringParameters.cardId;
-
-if (action === 'getBugNumbers' && cardId) {
-  try {
-    const TRELLO_AUTH = `key=${process.env.TRELLO_KEY}&token=${process.env.TRELLO_TOKEN}`;
-
-    // 1. Fetch Comments
-    const commentsReq = fetch(`https://api.trello.com/1/cards/${cardId}/actions?filter=commentCard&${TRELLO_AUTH}`);
-
-    // 2. Fetch Checklists
-    const checklistsReq = fetch(`https://api.trello.com/1/cards/${cardId}/checklists?${TRELLO_AUTH}`);
-
-    const [commentsRes, checklistsRes] = await Promise.all([commentsReq, checklistsReq]);
-
-    const commentsData = await commentsRes.json();
-    const checklistsData = await checklistsRes.json();
-
-    let allTextToSearch = [];
-
-    // Extract text from comments
-    if (Array.isArray(commentsData)) {
-      commentsData.forEach(action => {
-        if (action.data && action.data.text) {
-          allTextToSearch.push(action.data.text);
-        }
-      });
-    }
-
-    // Extract text from checklist items
-    if (Array.isArray(checklistsData)) {
-      checklistsData.forEach(checklist => {
-        checklist.checkItems.forEach(item => {
-          allTextToSearch.push(item.name);
-        });
-      });
-    }
-
+exports.handler = async (event, context) => {
+  // 1. HANDLE CORS PREFLIGHT (The Bouncer)
+  // Chrome sends an 'OPTIONS' request before the real request. We must approve it immediately.
+  if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
-      body: JSON.stringify(allTextToSearch)
+      headers: corsHeaders,
+      body: ''
     };
-
-  } catch (error) {
-    return { statusCode: 500, body: error.message };
   }
-}
 
-exports.handler = async (event) => {
-  const key = process.env.TRELLO_KEY;
-  const token = process.env.TRELLO_TOKEN;
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
-  };
+  // 2. EXTRACT PARAMETERS
+  const { action, boardId, cardId } = event.queryStringParameters || {};
 
-  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers };
+  // 3. GRAB TRELLO CREDENTIALS FROM NETLIFY SETTINGS
+  const TRELLO_KEY = process.env.TRELLO_KEY;
+  const TRELLO_TOKEN = process.env.TRELLO_TOKEN;
+
+  if (!TRELLO_KEY || !TRELLO_TOKEN) {
+    return {
+      statusCode: 500,
+      headers: corsHeaders,
+      body: JSON.stringify({ error: "Missing Trello API keys in Netlify Environment Variables." })
+    };
+  }
+
+  const authParams = `key=${TRELLO_KEY}&token=${TRELLO_TOKEN}`;
 
   try {
-    // GET: Load Boards
-    if (event.httpMethod === "GET") {
-      const boards = await Promise.all(BOARDS.map(async id => {
-        const r = await fetch(`https://api.trello.com/1/boards/${id}?key=${key}&token=${token}&fields=name`);
-        return r.json();
-      }));
-      return { statusCode: 200, headers, body: JSON.stringify(boards) };
+    // ==========================================
+    // ROUTE 1: FETCH LATEST BUG NUMBERS (For the Yellow Pill)
+    // ==========================================
+    if (action === 'getBugNumbers' && cardId) {
+
+      // Ping Trello for both Comments and Checklist items concurrently for speed
+      const commentsReq = fetch(`https://api.trello.com/1/cards/${cardId}/actions?filter=commentCard&${authParams}`);
+      const checklistsReq = fetch(`https://api.trello.com/1/cards/${cardId}/checklists?${authParams}`);
+
+      const [commentsRes, checklistsRes] = await Promise.all([commentsReq, checklistsReq]);
+
+      const commentsData = await commentsRes.json();
+      const checklistsData = await checklistsRes.json();
+
+      let allTextToSearch = [];
+
+      // Extract text from comments
+      if (Array.isArray(commentsData)) {
+        commentsData.forEach(action => {
+          if (action.data && action.data.text) allTextToSearch.push(action.data.text);
+        });
+      }
+
+      // Extract text from checklists
+      if (Array.isArray(checklistsData)) {
+        checklistsData.forEach(checklist => {
+          if (checklist.checkItems) {
+            checklist.checkItems.forEach(item => allTextToSearch.push(item.name));
+          }
+        });
+      }
+
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify(allTextToSearch)
+      };
     }
 
-    // POST: Load Cards for a board
-    if (event.httpMethod === "POST") {
-      const boardId = event.queryStringParameters.boardId;
-      const r = await fetch(`https://api.trello.com/1/boards/${boardId}/cards?key=${key}&token=${token}&fields=name`);
-      const cards = await r.json();
-      return { statusCode: 200, headers, body: JSON.stringify(cards) };
+    // ==========================================
+    // ROUTE 2: FETCH CARDS (When a Board is selected)
+    // ==========================================
+    else if (boardId) {
+      const response = await fetch(`https://api.trello.com/1/boards/${boardId}/cards?${authParams}`);
+      if (!response.ok) throw new Error(`Trello API Error: ${response.statusText}`);
+
+      const cards = await response.json();
+
+      // Format strictly to what the frontend expects to keep the payload light
+      const formattedCards = cards.map(c => ({ id: c.id, name: c.name }));
+
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify(formattedCards)
+      };
     }
-  } catch (err) {
-    return { statusCode: 500, headers, body: err.message };
+
+    // ==========================================
+    // ROUTE 3: FETCH BOARDS (Initial Load)
+    // ==========================================
+    else {
+      const response = await fetch(`https://api.trello.com/1/members/me/boards?fields=id,name&${authParams}`);
+      if (!response.ok) throw new Error(`Trello API Error: ${response.statusText}`);
+
+      const boards = await response.json();
+
+      return {
+        statusCode: 200,
+        headers: corsHeaders,
+        body: JSON.stringify(boards)
+      };
+    }
+
+  } catch (error) {
+    console.error("Netlify Function Error:", error);
+    return {
+      statusCode: 500,
+      headers: corsHeaders, // Even errors need CORS headers, or the browser hides the real error!
+      body: JSON.stringify({ error: error.message || "Internal Server Error" })
+    };
   }
 };
