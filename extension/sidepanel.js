@@ -218,35 +218,36 @@ cardSearch.addEventListener('input', () => {
 
 async function fetchLatestBugNumber(cardId) {
     const pill = document.getElementById('latestBugPill');
-    pill.innerText = 'Checking...';
+    pill.innerText = 'Syncing Trello...';
     pill.classList.remove('hidden');
 
     try {
-        // Find the most recent bug logged for this specific Trello card
-        const { data, error } = await _supabase
-            .from('bug_reports')
-            .select('description') // "description" column holds the title in our DB
-            .eq('trello_card_id', cardId)
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-        if (error) throw error;
-
-        if (!data || data.length === 0) {
-            pill.innerText = 'No bugs reported yet';
-        } else {
-            // Extract the number from strings like "Bug 101: Summary"
-            const lastTitle = data[0].description;
-            const match = lastTitle.match(/bug\s*(\d+)/i);
-
+        // We ping your Netlify backend, passing the cardId and a new action flag
+        const res = await fetch(`${NETLIFY_BASE}/manage-webhooks?action=getBugNumbers&cardId=${cardId}`);
+        
+        if (!res.ok) throw new Error("Failed to fetch from Trello");
+        
+        const textItems = await res.json(); // Expecting an array of strings back
+        
+        let highestBug = 0;
+        
+        // Scan every string for "Bug [number]" using Regex
+        textItems.forEach(text => {
+            const match = text.match(/bug\s*(\d+)/i);
             if (match) {
-                pill.innerText = `Latest: Bug ${match[1]}`;
-            } else {
-                pill.innerText = `Latest: Unknown`;
+                const num = parseInt(match[1], 10);
+                if (num > highestBug) highestBug = num;
             }
+        });
+
+        if (highestBug > 0) {
+            pill.innerText = `Latest: Bug ${highestBug}`;
+        } else {
+            pill.innerText = `Latest: None`;
         }
     } catch (e) {
-        pill.innerText = 'Error checking bugs';
+        console.error("Trello Sync Error:", e);
+        pill.innerText = 'Error syncing Trello';
     }
 }
 

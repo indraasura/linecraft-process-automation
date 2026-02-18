@@ -645,7 +645,7 @@ input:checked+.slider:before {
 .bug-pill {
   display: inline-block;
   padding: 4px 10px;
-  background: #ffeb3b; /* Bright yellow */
+  background: #3bdeff; /* Bright yellow */
   border: 2px solid black;
   box-shadow: 2px 2px 0px black;
   font-size: 11px;
